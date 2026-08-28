@@ -1,0 +1,6 @@
+fastapi>=0.115
+uvicorn
+pandas
+python-dotenv
+google-genai
+httpx>=0.28.1
