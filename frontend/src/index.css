@@ -5671,7 +5671,113 @@ section {
     border-radius: 8px;
 }
 .tour-popover-close:hover { background: #f5f3ff; color: #4b5563; }
-.tour-popover-body { padding: 18px 20px 8px; }
+.tour-popover-body {
+    padding: 18px 20px 8px;
+    max-height: min(52vh, 420px);
+    overflow-y: auto;
+}
+.tour-callout {
+    margin: 10px 0 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #f5f3ff;
+    border: 1px solid #ede9fe;
+}
+.tour-callout-action {
+    background: #eff6ff;
+    border-color: #dbeafe;
+}
+.tour-callout strong {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6d28d9;
+    margin-bottom: 4px;
+}
+.tour-callout-action strong { color: #1d4ed8; }
+.tour-callout p {
+    margin: 0 !important;
+    font-size: 13px !important;
+    color: #374151 !important;
+}
+.tour-lifecycle {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    list-style: none;
+    margin: 12px 0 4px;
+    padding: 0;
+}
+.tour-lifecycle li {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #9ca3af;
+    padding: 3px 6px;
+    border-radius: 999px;
+    background: #f3f4f6;
+}
+.tour-lifecycle li.is-active {
+    color: #fff;
+    background: #7c3aed;
+}
+.guide-journey {
+    list-style: none;
+    margin: 0 0 28px;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    counter-reset: none;
+}
+.guide-journey-card {
+    text-align: left;
+    width: 100%;
+    min-height: 100%;
+    border: 1px solid #e4ddf4;
+    background: linear-gradient(180deg, #ffffff 0%, #faf7ff 100%);
+    border-radius: 16px;
+    padding: 16px 16px 14px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.guide-journey-card:hover {
+    border-color: #c4b5fd;
+    box-shadow: 0 10px 24px rgba(109, 40, 217, 0.08);
+}
+.guide-journey-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    background: #7c3aed;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.guide-journey-card h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #2e1065;
+}
+.guide-journey-card p {
+    margin: 0;
+    color: #4b5563;
+    font-size: 13px;
+    line-height: 1.45;
+    flex: 1;
+}
+.guide-journey-card span:last-child {
+    color: #6d28d9;
+    font-size: 13px;
+    font-weight: 700;
+}
 .tour-popover-kicker {
     margin: 0 0 6px;
     font-size: 11px;
@@ -5853,6 +5959,7 @@ section {
     .tour-guide-ctas .tour-primary, .tour-guide-ctas .tour-secondary { flex: 1 1 160px; }
     .tour-popover-footer { grid-template-columns: 1fr 1fr; }
     .tour-popover-count { grid-column: 1 / -1; order: -1; }
+    .guide-journey { grid-template-columns: 1fr; }
 }
 
 /* Exception suggested-resolution overlay */

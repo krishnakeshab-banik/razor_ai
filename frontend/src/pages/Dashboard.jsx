@@ -744,7 +744,7 @@ function ExceptionsPage() {
             </header>
             <div className="exc-sheet-tabs">
               <button type="button" className={rightTab === 'details' ? 'active' : ''} onClick={() => setRightTab('details')}>Details</button>
-              <button type="button" className={rightTab === 'actions' ? 'active' : ''} data-tour="exception-resolve" onClick={() => setRightTab('actions')}>Actions</button>
+              <button type="button" className={rightTab === 'actions' ? 'active' : ''} onClick={() => setRightTab('actions')}>Actions</button>
               <button type="button" className={rightTab === 'filter' ? 'active' : ''} onClick={() => setRightTab('filter')}>Filter</button>
             </div>
             <div className="exc-sheet-body">
@@ -771,11 +771,11 @@ function ExceptionsPage() {
                 </div>
               )}
               {rightTab !== 'filter' && !selectedException && (
-                <p className="db-ai-empty" data-tour="exception-explain">Click a payment ID in the table to inspect it here.</p>
+                <p className="db-ai-empty">Click a payment ID in the table to inspect it here.</p>
               )}
               {rightTab === 'details' && selectedException && (
                 <div className="exc-details-pane">
-                  <div className="bank-stat-row">
+                  <div className="bank-stat-row" data-tour="exception-ledger">
                     <div><span>Gross</span><strong>{formatPaise(selectedException.amount)}</strong></div>
                     <div><span>Settlement</span><strong>{formatPaise(selectedException.settlement_amount)}</strong></div>
                     <div><span>Fee</span><strong>{formatPaise(selectedException.fee)}</strong></div>
@@ -808,7 +808,7 @@ function ExceptionsPage() {
                   )}
                   <div className="db-whatif-actions">
                     <button className="db-topbar-cta" type="button" data-tour="exception-explain" onClick={() => handleExplainDifference(selectedException.payment_id)}>Explain this difference</button>
-                    <button className="db-filter-btn" type="button" onClick={() => handleInvestigate(selectedException.payment_id)}>Investigate exception</button>
+                    <button className="db-filter-btn" type="button" data-tour="exception-investigate" onClick={() => handleInvestigate(selectedException.payment_id)}>Investigate exception</button>
                   </div>
                   {difference && difference.payment_id === selectedException.payment_id && (
                     <div className="db-waterfall">

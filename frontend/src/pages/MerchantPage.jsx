@@ -49,18 +49,18 @@ export default function MerchantPage() {
 
   return (
     <div className="merchant-shell" data-tour="marketplace-store">
-      <header className="merchant-header">
+      <header className="merchant-header" data-tour="store-intro">
         <div className="merchant-brand">Northwind Goods · demo store</div>
         <nav className="merchant-nav">
           <button className="merchant-nav-link" onClick={() => setActiveTab('overview')} type="button">Home</button>
           <button className={`merchant-nav-link ${merchantView === 'store' ? 'active' : ''}`} onClick={() => setMerchantView('store')} type="button">Marketplace</button>
           <button className={`merchant-nav-link ${merchantView === 'orders' ? 'active' : ''}`} onClick={() => setMerchantView('orders')} type="button">Past orders</button>
-          <button className="merchant-nav-link" onClick={() => setActiveTab('dashboard')} type="button">Controller</button>
+          <button className="merchant-nav-link" data-tour="store-to-controller" onClick={() => setActiveTab('dashboard')} type="button">Controller</button>
           <button className="merchant-nav-link" onClick={openChooser} type="button">Tour</button>
         </nav>
         <div className="merchant-header-actions">
           <button className="merchant-link-btn subtle" onClick={() => setActiveTab('overview')} type="button">Back to home</button>
-          <button className="merchant-cart-button" onClick={() => setMerchantView('cart')} aria-label="Open cart" type="button">
+          <button className="merchant-cart-button" data-tour="store-cart-btn" onClick={() => setMerchantView('cart')} aria-label="Open cart" type="button">
             🛒{cart.length ? <span className="merchant-cart-count">{cart.reduce((sum, item) => sum + item.qty, 0)}</span> : null}
           </button>
         </div>
@@ -72,7 +72,7 @@ export default function MerchantPage() {
             <h2>Shop the catalogue</h2>
             <p>Simulated Razorpay checkout — each payment lands in the finance controller with a chosen exception outcome.</p>
           </section>
-          <section className="merchant-product-grid">
+          <section className="merchant-product-grid" data-tour="store-catalogue">
             {demoProducts.map((product) => (
               <article className="merchant-product-card" key={product.id}>
                 <div className="merchant-product-image">
@@ -88,7 +88,7 @@ export default function MerchantPage() {
                       <span className="merchant-product-qty-value">{cart.find((item) => item.id === product.id)?.qty || 0}</span>
                       <button className="merchant-product-qty-btn" onClick={() => addToCart(product)} type="button">+</button>
                     </div>
-                    <button className="merchant-add-btn" onClick={() => addToCart(product)} type="button">Add to cart</button>
+                    <button className="merchant-add-btn" data-tour="store-add" onClick={() => addToCart(product)} type="button">Add to cart</button>
                   </div>
                 </div>
               </article>
@@ -105,7 +105,7 @@ export default function MerchantPage() {
       )}
 
       {merchantView === 'orders' && (
-        <div className="merchant-orders-shell">
+        <div className="merchant-orders-shell" data-tour="store-orders">
           <section className="merchant-page-top">
             <h2>Past orders</h2>
             <p>Refunds post through the same reconciliation engine as checkout — cash, GST, exceptions and notifications update together.</p>
@@ -140,7 +140,7 @@ export default function MerchantPage() {
       )}
 
       {merchantView === 'cart' && (
-        <div className="merchant-cart-shell">
+        <div className="merchant-cart-shell" data-tour="store-cart">
           <div className="merchant-cart-header-row">
             <div className="merchant-brand-small">Northwind Goods</div>
             <button className="merchant-link-btn" onClick={() => setMerchantView('store')} type="button">← Continue shopping</button>
@@ -183,7 +183,7 @@ export default function MerchantPage() {
 
       {merchantView === 'checkout' && (
         <div className="merchant-checkout-shell">
-          <div className="merchant-checkout-card">
+          <div className="merchant-checkout-card" data-tour="store-checkout">
             <div className="merchant-checkout-header">
               <div className="merchant-checkout-title-wrap">
                 <div>
@@ -255,7 +255,7 @@ export default function MerchantPage() {
                 Save this method for the demo session
               </label>
               <div className="merchant-demo-box">DEMO CONTROLS — not shown to a real customer</div>
-              <label className="merchant-select-row">
+              <label className="merchant-select-row" data-tour="store-outcome">
                 Simulate settlement outcome
                 <select value={checkoutForm.aiOutcome} onChange={(event) => setCheckoutForm({ ...checkoutForm, aiOutcome: event.target.value })}>
                   <option value="clean">Clean payment</option>
@@ -269,7 +269,7 @@ export default function MerchantPage() {
               </label>
               <div className="merchant-action-row">
                 <button className="merchant-cancel-btn" onClick={() => setMerchantView('cart')} type="button">Cancel</button>
-                <button className="merchant-pay-btn" onClick={handleMerchantCheckout} type="button">Pay {formatRupees(merchantTotal)}</button>
+                <button className="merchant-pay-btn" data-tour="store-pay" onClick={handleMerchantCheckout} type="button">Pay {formatRupees(merchantTotal)}</button>
               </div>
               <div className="merchant-secure-note">Demo capture · then recon in the controller</div>
             </div>
@@ -279,7 +279,7 @@ export default function MerchantPage() {
 
       {merchantView === 'success' && (
         <div className="merchant-success-shell">
-          <div className="merchant-success-card">
+          <div className="merchant-success-card" data-tour="store-success">
             <p className="merchant-success-kicker">Captured</p>
             <h2>Payment captured</h2>
             <p>The charge is in the Razor-AI batch. Settlement still has to match.</p>

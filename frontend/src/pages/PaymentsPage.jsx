@@ -18,7 +18,7 @@ export default function PaymentsPage() {
   if (!reconciliationRun) {
     return (
       <div className="db-page">
-        <div className="db-card" data-tour="payments-filter">
+        <div className="db-card" data-tour="payments-heading">
           <p className="db-table-empty" data-tour="payments-table">Reconcile a batch to list payments.</p>
         </div>
       </div>
@@ -29,7 +29,7 @@ export default function PaymentsPage() {
 
   return (
     <div className="db-page">
-      <div className="db-page-heading">
+      <div className="db-page-heading" data-tour="payments-heading">
         <div>
           <h2 className="db-page-title">Payments</h2>
           <p className="db-page-sub">Every captured payment in the loaded batch. Date filters run on the backend against created_at.</p>
@@ -52,7 +52,7 @@ export default function PaymentsPage() {
       </div>
       {paymentsMeta?.filter?.warning && <p className="db-ingest-bad">{paymentsMeta.filter.warning}</p>}
       <div className="ops-console ops-console-payments">
-        <aside className="ops-rail">
+        <aside className="ops-rail" data-tour="payments-rail">
           <div className="ops-rail-group">
             <span>Run results</span>
             {[

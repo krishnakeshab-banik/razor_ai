@@ -34,7 +34,7 @@ export default function NotificationMenu() {
         {unreadNotifications > 0 ? <span className="db-bell-count">{unreadNotifications}</span> : null}
       </button>
       {notificationsOpen && (
-        <div className="db-notify-menu">
+        <div className="db-notify-menu" data-tour="notifications">
           <div className="db-notify-head">
             <strong>Notifications</strong>
             <button type="button" className="db-text-link" onClick={handleMarkAllNotificationsRead} disabled={!unreadNotifications}>

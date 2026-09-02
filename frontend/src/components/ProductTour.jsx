@@ -1,4 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
+import { LIFECYCLE_STAGES } from '../tour/steps';
 import { useTour } from '../tour/TourContext';
 import { useApp } from '../AppContext';
 
@@ -13,11 +14,15 @@ const PAGE_TITLES = {
   audit: 'Audit logs',
   knowledge: 'Rules',
   reports: 'Reports',
-  store: 'Marketplace',
+  store: 'the shop',
+  cart: 'the cart',
+  checkout: 'checkout',
+  orders: 'Past orders',
+  success: 'payment success',
 };
 
 const PAD = 6;
-const TIP_WIDTH = 400;
+const TIP_WIDTH = 420;
 const ARROW = 10;
 const GAP = 14;
 
@@ -25,7 +30,7 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function placeTooltip(rect, tipHeight = 200) {
+function placeTooltip(rect, tipHeight = 280) {
   const width = Math.min(TIP_WIDTH, window.innerWidth - 32);
   if (!rect) {
     return {
@@ -59,8 +64,10 @@ export default function ProductTour() {
     active, step, stepIndex, total, tryIt, waiting, targetReady, completed, chooser, rect,
     next, back, skip, finish, startTour, closeChooser, goDashboard, dismissComplete, canStartFromHere,
   } = useTour();
-  const { dashPage, activeTab } = useApp();
-  const hereLabel = activeTab === 'merchant-checkout' ? PAGE_TITLES.store : (PAGE_TITLES[dashPage] || 'this page');
+  const { dashPage, activeTab, merchantView } = useApp();
+  const hereLabel = activeTab === 'merchant-checkout'
+    ? (PAGE_TITLES[merchantView] || PAGE_TITLES.store)
+    : (PAGE_TITLES[dashPage] || 'this page');
 
   const tipRef = useRef(null);
   const [pos, setPos] = useState(() => placeTooltip(null));
@@ -74,7 +81,7 @@ export default function ProductTour() {
 
   useLayoutEffect(() => {
     if (!active) return undefined;
-    const height = tipRef.current?.offsetHeight || 200;
+    const height = tipRef.current?.offsetHeight || 280;
     const next = placeTooltip(highlight, height);
     setPos((prev) => (
       prev.top === next.top
@@ -92,10 +99,10 @@ export default function ProductTour() {
     return (
       <div className="tour-modal-backdrop" role="dialog" aria-labelledby="tour-chooser-title">
         <div className="tour-chooser">
-          <h2 id="tour-chooser-title">Guided tour</h2>
-          <p>Walk through the live Finance Controller — not a slideshow.</p>
+          <h2 id="tour-chooser-title">How a rupee moves through Razor-AI</h2>
+          <p>Live walkthrough from the shop through Payment, Fee, Refund, Settlement, Reconciliation, Exception, Investigation, and human resolution — not a slideshow.</p>
           <button type="button" className="tour-btn tour-btn-primary" onClick={() => startTour()}>
-            Full tour from Dashboard
+            Full tour from the shop
           </button>
           {canStartFromHere && (
             <button type="button" className="tour-btn tour-btn-ghost" onClick={() => startTour({ fromCurrent: true })}>
@@ -103,7 +110,7 @@ export default function ProductTour() {
             </button>
           )}
           <button type="button" className="tour-btn tour-btn-ghost" onClick={() => startTour({ handsOn: true })}>
-            Hands-on tour (try it yourself)
+            Hands-on from the shop
           </button>
           {canStartFromHere && (
             <button type="button" className="tour-btn tour-btn-ghost" onClick={() => startTour({ handsOn: true, fromCurrent: true })}>
@@ -120,20 +127,19 @@ export default function ProductTour() {
     return (
       <div className="tour-modal-backdrop" role="dialog" aria-labelledby="tour-complete-title">
         <div className="tour-complete">
-          <h2 id="tour-complete-title">Tour complete</h2>
-          <p>You have now seen the core Finance Controller workflow.</p>
+          <h2 id="tour-complete-title">You have walked the close loop</h2>
+          <p>A purchase can now be traced from capture to a human decision. The tour did not change the books.</p>
           <ul className="tour-complete-list">
-            <li>Monitor</li>
-            <li>Reconcile</li>
-            <li>Investigate</li>
-            <li>Explain</li>
-            <li>Resolve</li>
-            <li>Audit</li>
-            <li>Manage cash</li>
-            <li>Withdraw</li>
-            <li>Analyze finance</li>
+            <li>Shop & capture</li>
+            <li>Fee & GST</li>
+            <li>Refund</li>
+            <li>Settlement / cash</li>
+            <li>Reconciliation</li>
+            <li>Exception queue</li>
+            <li>Investigation</li>
+            <li>Human resolution</li>
           </ul>
-          <p className="tour-complete-note">The tour did not change financial records. Try the live controls yourself.</p>
+          <p className="tour-complete-note">Try a planted break yourself: Store → Fee miscalculation or Missing settlement → Pay → Notifications → Explain this difference.</p>
           <button type="button" className="tour-btn tour-btn-primary" onClick={goDashboard}>Explore Dashboard →</button>
           <button type="button" className="tour-btn tour-btn-text" onClick={dismissComplete}>Close</button>
         </div>
@@ -184,10 +190,29 @@ export default function ProductTour() {
           <p className="tour-popover-kicker">{step.section}</p>
           <h3 id="tour-step-title">{step.title}</h3>
           <p>{waiting ? 'Waiting for this page to load…' : step.body}</p>
+          {!waiting && step.meaning && (
+            <div className="tour-callout">
+              <strong>What this means</strong>
+              <p>{step.meaning}</p>
+            </div>
+          )}
+          {!waiting && step.action && (
+            <div className="tour-callout tour-callout-action">
+              <strong>What you should do</strong>
+              <p>{step.action}</p>
+            </div>
+          )}
           {!targetReady && !waiting && (
             <p className="tour-missing">This control is not on screen yet. Load a batch from Reconciliation, or continue.</p>
           )}
           {tryIt && step.tryPrompt && <p className="tour-try">{step.tryPrompt}</p>}
+          {step.lifecycle && (
+            <ol className="tour-lifecycle" aria-label="Close loop">
+              {LIFECYCLE_STAGES.map((stage) => (
+                <li key={stage} className={step.lifecycle === stage ? 'is-active' : ''}>{stage}</li>
+              ))}
+            </ol>
+          )}
         </div>
         <div className="tour-popover-footer">
           <button type="button" className="tour-btn tour-btn-back" onClick={back} disabled={stepIndex === 0}>

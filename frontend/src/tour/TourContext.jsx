@@ -2,7 +2,7 @@ import React, {
   createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
 } from 'react';
 import { useApp } from '../AppContext';
-import { firstStepIndexForPage, STORAGE_KEY, TOUR_STEPS } from './steps';
+import { firstStepIndexForPage, firstStepIndexForSection, STORAGE_KEY, TOUR_STEPS } from './steps';
 
 const TourContext = import.meta.hot?.data?.TourContext ?? createContext(null);
 if (import.meta.hot) import.meta.hot.data.TourContext = TourContext;
@@ -44,7 +44,9 @@ function waitForTarget(target, timeoutMs = 2800) {
 export function TourProvider({ children }) {
   const {
     activeTab, setActiveTab, dashPage, setDashPage, setMerchantView, setSidebarOpen,
-    exceptions, setSelectedExcId, handleExplainDifference, reconciliationRun,
+    exceptions, setSelectedExcId, handleExplainDifference, handleInvestigate,
+    reconciliationRun, merchantView, lastPayment, setMismatchFilter, setNotificationsOpen,
+    closeDrawer,
   } = useApp();
 
   const [active, setActive] = useState(false);
@@ -58,9 +60,10 @@ export function TourProvider({ children }) {
 
   const appRef = useRef({});
   appRef.current = {
-    activeTab, dashPage, exceptions, reconciliationRun,
+    activeTab, dashPage, exceptions, reconciliationRun, merchantView, lastPayment,
     setActiveTab, setDashPage, setMerchantView, setSidebarOpen,
-    setSelectedExcId, handleExplainDifference,
+    setSelectedExcId, handleExplainDifference, handleInvestigate,
+    setMismatchFilter, setNotificationsOpen, closeDrawer,
   };
 
   const liveRef = useRef({ active: false, stepIndex: 0, tryIt: false });
@@ -84,8 +87,10 @@ export function TourProvider({ children }) {
   const goToStepPage = useCallback((item) => {
     const app = appRef.current;
     app.setSidebarOpen(false);
+    app.closeDrawer?.();
+    app.setNotificationsOpen?.(Boolean(item.openNotifications));
     if (item.tab === 'merchant-checkout') {
-      app.setMerchantView('store');
+      app.setMerchantView(item.view || 'store');
       app.setActiveTab('merchant-checkout');
       return;
     }
@@ -120,6 +125,8 @@ export function TourProvider({ children }) {
       setCompleted(true);
       setRect(null);
       persist({ active: false, completed: true });
+      appRef.current.closeDrawer?.();
+      appRef.current.setNotificationsOpen?.(false);
       appRef.current.setActiveTab('dashboard');
       appRef.current.setDashPage('home');
       return;
@@ -128,6 +135,17 @@ export function TourProvider({ children }) {
     const item = TOUR_STEPS[index];
     if (!item) return;
     const tryHandsOn = liveRef.current.tryIt;
+    const app = appRef.current;
+
+    if (item.skipUnless === 'lastPayment' && !app.lastPayment) {
+      await applyIndex(index + direction, direction);
+      return;
+    }
+    if (item.skipUnless === 'exceptions' && !app.exceptions?.length) {
+      await applyIndex(index + direction, direction);
+      return;
+    }
+
     goToStepPage(item);
     setWaiting(true);
     setTargetReady(true);
@@ -135,19 +153,27 @@ export function TourProvider({ children }) {
     liveRef.current = { ...liveRef.current, stepIndex: index, active: true, waiting: true };
     persist({ active: true, stepIndex: index });
 
-    if (item.safeSelect && !tryHandsOn && appRef.current.exceptions?.length) {
-      appRef.current.setSelectedExcId(appRef.current.exceptions[0].payment_id);
+    if (item.page === 'exceptions') {
+      app.setMismatchFilter?.(item.filter || 'all');
     }
 
-    await new Promise((resolve) => window.setTimeout(resolve, 80));
-    if ((item.id === 'exception-explain' || item.id === 'exception-resolve') && appRef.current.exceptions?.length) {
-      appRef.current.setSelectedExcId(appRef.current.exceptions[0].payment_id);
+    await new Promise((resolve) => window.setTimeout(resolve, 220));
+
+    const wantsPanel = Boolean(item.panel || item.safeSelect);
+    const chosen = wantsPanel && app.exceptions?.length
+      ? (item.selectType
+        ? (app.exceptions.find((row) => row.mismatch_type === item.selectType) || app.exceptions[0])
+        : app.exceptions[0])
+      : null;
+
+    if (chosen) {
+      app.setSelectedExcId(chosen.payment_id);
       window.dispatchEvent(new CustomEvent('razor-open-exception-panel', {
-        detail: item.id === 'exception-resolve' ? 'actions' : 'details',
+        detail: item.panel === 'actions' ? 'actions' : 'details',
       }));
     }
 
-    await new Promise((resolve) => window.setTimeout(resolve, 60));
+    await new Promise((resolve) => window.setTimeout(resolve, 80));
     const node = await waitForTarget(item.target);
     if (!node) {
       if (item.skipIfMissing) {
@@ -166,8 +192,9 @@ export function TourProvider({ children }) {
     setWaiting(false);
     liveRef.current = { ...liveRef.current, waiting: false };
 
-    if (item.id === 'exception-explain' && !tryHandsOn && appRef.current.exceptions?.length) {
-      appRef.current.handleExplainDifference(appRef.current.exceptions[0].payment_id);
+    if (!tryHandsOn && chosen) {
+      if (item.id === 'exception-explain') app.handleExplainDifference(chosen.payment_id);
+      if (item.id === 'exception-investigate') app.handleInvestigate(chosen.payment_id);
     }
   }, [goToStepPage, measure, persist]);
 
@@ -180,6 +207,8 @@ export function TourProvider({ children }) {
     setCompleted(true);
     setRect(null);
     persist({ active: false, completed: true });
+    appRef.current.closeDrawer?.();
+    appRef.current.setNotificationsOpen?.(false);
     appRef.current.setActiveTab('dashboard');
     appRef.current.setDashPage('home');
   }, [persist]);
@@ -190,19 +219,23 @@ export function TourProvider({ children }) {
     setCompleted(false);
     setRect(null);
     persist({ active: false, completed: false });
+    appRef.current.closeDrawer?.();
+    appRef.current.setNotificationsOpen?.(false);
     appRef.current.setActiveTab('dashboard');
     appRef.current.setDashPage('guide');
   }, [persist]);
 
-  const startTour = useCallback(async ({ handsOn = false, fromCurrent = false } = {}) => {
+  const startTour = useCallback(async ({ handsOn = false, fromCurrent = false, section = null } = {}) => {
     setChooser(false);
     setCompleted(false);
     setTryIt(handsOn);
     setActive(true);
     const app = appRef.current;
     let start = 0;
-    if (fromCurrent && app.activeTab === 'merchant-checkout') {
-      start = firstStepIndexForPage('store', 'merchant-checkout');
+    if (section) {
+      start = firstStepIndexForSection(section);
+    } else if (fromCurrent && app.activeTab === 'merchant-checkout') {
+      start = firstStepIndexForPage(app.merchantView || 'store', 'merchant-checkout');
     } else if (fromCurrent && app.dashPage && app.dashPage !== 'guide') {
       start = firstStepIndexForPage(app.dashPage, 'dashboard');
     }

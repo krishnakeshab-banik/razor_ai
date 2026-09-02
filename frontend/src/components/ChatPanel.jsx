@@ -59,7 +59,7 @@ export default function ChatPanel() {
     : 'What happened on the latest day in this batch?';
 
   return (
-    <div className="db-card db-chat-card">
+    <div className="db-card db-chat-card" data-tour="settlement-qa">
       <h3 className="db-card-title">Settlement Q&A</h3>
       <div className="db-chat-messages">
         {(visibleChatMessages || []).map((msg) => (
