@@ -14,6 +14,15 @@ __pycache__/
 *.db
 *.sqlite
 *.sqlite3
+razorai.db
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Accidental generate_data output at repo root
+/synthetic_batch.csv
+/answer_key.csv
 
 # OS and editor files
 .DS_Store

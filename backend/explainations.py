@@ -14,6 +14,10 @@ that uses an LLM, precisely because that is the only place where the input
 (an arbitrary merchant question) is genuinely open-ended.
 """
 
+from __future__ import annotations
+
+from config import FEE_PCT, TAX_PCT
+
 TEMPLATES = {
     "missing_settlement": (
         "Payment {payment_id} for Rs {amount_rupees} has no matching settlement "
@@ -27,6 +31,10 @@ TEMPLATES = {
         "Fee charged (Rs {fee_rupees}) does not match the expected 2% fee "
         "(Rs {expected_fee_rupees}) for a payment of Rs {amount_rupees}."
     ),
+    "tax_line_mismatch": (
+        "Tax charged (Rs {tax_rupees}) does not match the expected 18% GST on the fee "
+        "(Rs {expected_tax_rupees})."
+    ),
     "duplicate_record": (
         "Payment {payment_id} appears more than once in this batch. Only one "
         "settlement was expected for this payment."
@@ -38,6 +46,17 @@ TEMPLATES = {
     "unclassified_discrepancy": (
         "Settlement amount differs from the expected amount by Rs {delta_rupees}. "
         "The specific cause could not be automatically classified and needs review."
+    ),
+    "partial_settlement": (
+        "Payment {payment_id} received a partial credit. Expected net Rs {expected_settlement_rupees}; "
+        "actual Rs {settlement_rupees}. Remaining Rs {delta_rupees} is unexplained. Human review required."
+    ),
+    "unknown_adjustment": (
+        "An unexplained adjustment of Rs {adjustment_rupees} reduced the credit for {payment_id}. "
+        "Unable to determine with available evidence."
+    ),
+    "duplicate_settlement": (
+        "Settlement identifier for payment {payment_id} also appears on another payment in this batch."
     ),
 }
 
@@ -71,14 +90,25 @@ def explain(row: dict) -> str:
         return f"Unrecognised discrepancy type: {mismatch_type}. Needs manual review."
 
     amount = row.get("amount") or 0
-    expected_fee_paise = round(amount * 0.02)
+    expected_fee_paise = round(amount * FEE_PCT)
+    expected_tax_paise = round(expected_fee_paise * TAX_PCT)
 
     days = "?"
     if row.get("settled_at") and row.get("created_at"):
         try:
             days = (row["settled_at"] - row["created_at"]).days
         except TypeError:
-            days = "?"
+            try:
+                from datetime import datetime
+                settled = row["settled_at"]
+                created = row["created_at"]
+                if isinstance(settled, str):
+                    settled = datetime.fromisoformat(settled.replace("Z", "+00:00"))
+                if isinstance(created, str):
+                    created = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                days = (settled - created).days
+            except (TypeError, ValueError):
+                days = "?"
 
     values = {
         "payment_id": row.get("payment_id", "unknown"),
@@ -87,11 +117,22 @@ def explain(row: dict) -> str:
         "refund_rupees": _to_rupees(row.get("refund_amount") or 0),
         "fee_rupees": _to_rupees(row.get("fee") or 0),
         "expected_fee_rupees": _to_rupees(expected_fee_paise),
+        "tax_rupees": _to_rupees(row.get("tax") or 0),
+        "expected_tax_rupees": _to_rupees(expected_tax_paise),
         "created_at": row.get("created_at", "unknown date"),
         "days": days,
+        "expected_settlement_rupees": _to_rupees(row.get("expected_settlement") or 0),
+        "settlement_rupees": _to_rupees(row.get("settlement_amount") or 0),
+        "adjustment_rupees": _to_rupees(row.get("adjustment") or 0),
     }
 
     try:
         return template.format(**values)
     except (KeyError, ValueError):
         return f"Discrepancy of type {mismatch_type} detected, but the explanation could not be formatted."
+
+
+def suggested_resolution(mismatch_type: str | None) -> dict:
+    """Kept here so the API can attach a next action without importing resolution.py cycles."""
+    from resolution import suggest
+    return suggest(mismatch_type)

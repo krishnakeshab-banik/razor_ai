@@ -53,6 +53,7 @@ def run():
     metrics = r.json()
     check("match_rate is present", "match_rate" in metrics)
     check("validation block present (answer key comparison)", "validation" in metrics)
+    check("mismatch_breakdown present", isinstance(metrics.get("mismatch_breakdown"), dict))
     print(f"    Match rate: {metrics['match_rate']*100:.1f}%, exceptions: {metrics['exceptions']}")
     if "validation" in metrics:
         v = metrics["validation"]
@@ -70,9 +71,16 @@ def run():
     exceptions = r.json()
     check("exceptions is a non-empty list", len(exceptions) > 0)
     check("each exception has an explanation", all("explanation" in e for e in exceptions))
+    check("each exception has a suggested action", all("suggested_action" in e for e in exceptions))
     check("no exception explanation has unfilled placeholders",
           all("{" not in e["explanation"] for e in exceptions))
     print(f"    {len(exceptions)} exceptions returned, all with explanations")
+
+    print("\n=== POST /batch/upload (CSV file upload) ===")
+    upload_file = ("demo_batch.csv", b"payment_id,amount,order_id,settlement_date,bank_ref,source,notes\npay_1,10000,order_1,2026-08-19,BNK_1,Razorpay,Settlement expected within 2 days\npay_2,20000,order_2,2026-08-20,BNK_2,Razorpay,Missing settlement record\n", "text/csv")
+    r = client.post("/batch/upload", files={"file": upload_file})
+    check("upload returns 200", r.status_code == 200)
+    check("upload loads rows into the batch", r.json()["loaded"] >= 2)
 
     print("\n=== GET /audit-trail ===")
     r = client.get("/audit-trail")
@@ -81,6 +89,16 @@ def run():
     check("audit trail has entries", len(audit) > 0)
     check("audit trail includes rule_engine entries", any(a["source"] == "rule_engine" for a in audit))
     print(f"    {len(audit)} audit entries logged")
+
+    print("\n=== GET /analytics/summary ===")
+    r = client.get("/analytics/summary")
+    check("analytics summary returns 200", r.status_code == 200)
+    analytics = r.json()
+    check("summary contains total_orders", "total_orders" in analytics)
+    check("summary contains total_earnings", "total_earnings" in analytics)
+    check("summary contains monthly breakdown", isinstance(analytics.get("monthly"), list) and len(analytics["monthly"]) > 0)
+    check("summary contains yearly breakdown", isinstance(analytics.get("yearly"), list) and len(analytics["yearly"]) > 0)
+    print(f"    Orders: {analytics['total_orders']}, earnings: Rs {analytics['total_earnings']}")
 
     print("\n=== POST /chat (SKIPPED -- needs live GEMINI_API_KEY, see test_chatbot_live.py) ===")
 
