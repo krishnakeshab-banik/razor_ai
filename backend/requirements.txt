@@ -9,3 +9,4 @@ httpx==0.28.1
 eval_type_backport==0.4.0
 python-docx==1.1.2
 lxml==6.1.2
+razorpay==1.4.2

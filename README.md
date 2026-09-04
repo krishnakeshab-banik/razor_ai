@@ -36,7 +36,7 @@ CSV / generate demo  →  ingest.py (validate, map, flag malformed)
                      →  SQLite audit / notifications / rules / store orders
 ```
 
-Frontend (Vite + React) talks to FastAPI on port 8000. Marketing, demo store, and controller are separate pages. **Manual guide** runs an interactive tour over the live UI.
+Frontend (Vite + React) talks to FastAPI on port 8000. Marketing, demo store, and controller are separate pages. **Manual guide** runs an interactive tour over the live UI. **EN | हिं** switches controller chrome and store header; the same preference is sent on `/chat` so Settlement Q&A can answer in Hindi. Each tour step has a mic toggle that reads that step aloud in the selected language (browser speech, off by default).
 
 ## Data flow
 
@@ -64,6 +64,7 @@ Every row gets **status, confidence, evidence signals, calculation, explanation*
 - **Never** the authority for arithmetic, tax, fee, totals, or balances.
 - Chat runs **deterministic tools** first (`get_batch_summary`, `investigate_exception`, `get_cash_position`, `what_if`, …).
 - Gemini only describes that JSON. If the model invents a `pay_…` ID that was not retrieved, the answer is rejected.
+- `POST /chat` accepts `language` (`en` or `hi`). Hindi replies use Devanagari; `payment_id`, UTR, batch IDs, and amounts stay in Latin script. Leak/empty/quota fallbacks are also localized.
 - If `GEMINI_API_KEY` is missing or quota is exhausted: recon, dashboard, exceptions, and explanations still work. The user sees that AI investigation is temporarily unavailable.
 
 Uploaded descriptions are **data**, not system instructions.
@@ -126,6 +127,8 @@ See `.env.example`.
 | Variable | Purpose |
 | --- | --- |
 | `GEMINI_API_KEY` | Optional chat |
+| `RAZORPAY_KEY_ID` | Optional Razorpay Test Mode public key (Checkout.js) |
+| `RAZORPAY_KEY_SECRET` | Optional Razorpay Test Mode secret (server HMAC only — never sent to the browser) |
 | `VITE_API_URL` | Frontend API base (default `http://localhost:8000`) |
 | `RAZOR_AI_FEE_PCT` | Default `0.02` |
 | `RAZOR_AI_TAX_PCT` | Default `0.18` (on fee) |
@@ -140,9 +143,10 @@ CSV, TXT, XLS, XLSX. Combined Razorpay-shaped exports (payment + settlement colu
 
 ## Product surface
 
-Controller sidebar: Dashboard, Payments, Reconciliation, Exceptions, Cash, GST, Withdraw, Audit logs, Rules, Manual guide, Reports.
+Controller sidebar: Dashboard, Settlement Q&A, Payments, Reconciliation, Exceptions, Cash, GST, Withdraw, Audit logs, Rules, Manual guide, Reports.
 
-- **Dashboard** — match rate, briefing, action queue, cash strip, exception preview, chat.
+- **Dashboard** — match rate, briefing, action queue, cash strip, exception preview, compact chat.
+- **Settlement Q&A** — full-page conversation (same thread as the home panel). Tables/charts come from tool JSON, not Gemini.
 - **Payments** — batch payments with date/time filters and All / Matched / Exceptions rail.
 - **Exceptions** — queue, filters, Explain this difference, investigate, HITL resolve.
 - **Cash** — available / pending / unresolved / projected; Why is my cash different?; what-if.
@@ -150,21 +154,22 @@ Controller sidebar: Dashboard, Payments, Reconciliation, Exceptions, Cash, GST, 
 - **Withdraw** — eligible balance, analysis waterfall, synthetic confirm (not a bank transfer).
 - **Manual guide** — Start Guided Tour (live UI, no fake screenshots) or explore pages manually.
 - **Store** (header, not sidebar) — Northwind Goods checkout + Past orders refunds.
+- **Language** — **EN | हिं** on the marketing header, controller topbar, and store header. Preference is stored in `localStorage` (`razorai-lang`). Sidebar, home KPIs, page titles, chat chips, and tour copy switch immediately. Table cells and engine IDs stay as recorded.
 
-The tour highlights real controls. It will not auto-click Withdraw, Apply fix, Close books, Generate Demo Dataset, or Refund.
+The tour highlights real controls. It will not auto-click Withdraw, Apply fix, Close books, Generate Demo Dataset, or Refund. Each step can turn **voice on or off**; if left on, the browser reads that step’s title, meaning, and action in English or Hindi. Voice preference is session-only (`razorai-tour-voice`) and defaults to off.
 
 For a 5-minute judging pass, follow `DEMO_SCRIPT.md` (Reconciliation → Exceptions → Close books). Do not equal-airtime every page.
 
 ## Demo workflow
 
 1. Open the app → **Get started**.
-2. Optional: **Manual guide → Start Guided Tour** to walk the live product.
+2. Optional: switch **हिं** if you want the controller and answers in Hindi. **Manual guide → Start Guided Tour** walks the live product; turn the mic on for a spoken explanation of each step.
 3. **Generate Demo Dataset** (100+) or upload a CSV on Reconciliation.
 4. Engine runs. Dashboard shows match rate, exceptions, amount at risk (all calculated).
 5. Open **Exceptions** → **Explain this difference** → **Investigate**.
 6. Apply high-confidence arithmetic fixes, or escalate missing UTRs.
 7. **Close books** auto-resolves only auto-fixable types.
-8. Ask the assistant “How much cash tomorrow?” or “What if the ₹2 lakh settlement is delayed?”
+8. Ask the assistant “How much cash tomorrow?” or “What if the ₹2 lakh settlement is delayed?” (in Hindi after switching हिं).
 9. Read the audit trail. Preview a withdrawal without treating it as a bank payout.
 
 Optional: **Store** checkout injects a live payment with a chosen settlement outcome. **Past orders** can refund through the same engine.
@@ -194,6 +199,8 @@ Judging loop (not the full feature list): `DEMO_SCRIPT.md`.
 - SQLite audit is a demo log, not a WORM ledger.
 - Withdrawals are synthetic ledger entries, not bank payouts.
 - Chat grounding rejects invented payment IDs; it does not parse every rupee figure in free text.
+- Hindi covers chrome, chat, and tour — not every table cell or intel briefing string.
+- Tour voice uses the browser Web Speech API; a Hindi voice is only as good as the OS/browser voices installed.
 - 100% detection on the synthetic answer key is **fixture correctness**, not a production accuracy claim.
 - Chargebacks, FX, and live payout batches are out of scope.
 

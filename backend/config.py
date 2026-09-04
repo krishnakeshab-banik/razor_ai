@@ -58,6 +58,10 @@ def public_config() -> dict:
         "high_amount_paise": HIGH_AMOUNT_PAISE,
         "high_delta_paise": HIGH_DELTA_PAISE,
         "medium_delta_paise": MEDIUM_DELTA_PAISE,
+        "razorpay_test_configured": bool(
+            (os.environ.get("RAZORPAY_KEY_ID") or "").strip()
+            and (os.environ.get("RAZORPAY_KEY_SECRET") or "").strip()
+        ),
         "notes": (
             "Fee is a percentage of GMV. GST is a percentage of the fee, not of GMV. "
             "Change RAZOR_AI_FEE_PCT / RAZOR_AI_TAX_PCT if a merchant is not on standard pricing."

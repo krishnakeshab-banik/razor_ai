@@ -109,9 +109,15 @@ export function flagDestination(item) {
 
 export function formatTimestamp(value) {
   if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+  const raw = String(value).trim();
+  const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(raw);
+  const date = new Date(hasZone ? raw : raw.replace(' ', 'T'));
+  if (Number.isNaN(date.getTime())) return raw;
+  return date.toLocaleString('en-IN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    ...(hasZone ? { timeZone: 'Asia/Kolkata' } : {}),
+  });
 }
 
 export function matchPercent(metrics) {

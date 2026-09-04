@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import DateRangeFilter, { EMPTY_DATE_FILTER } from '../components/DateRangeFilter';
 import { useApp } from '../AppContext';
 import { formatRupees, formatTimestamp } from '../lib/format';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export default function WithdrawPage() {
   const {
@@ -9,11 +10,13 @@ export default function WithdrawPage() {
     fetchWithdrawals, handlePreviewWithdraw, handleConfirmWithdraw,
     withdrawPreview, withdrawing,
   } = useApp();
+  const { t } = useLanguage();
   const [asOf, setAsOf] = useState('');
   const [amount, setAmount] = useState('');
   const [historyFilter, setHistoryFilter] = useState(EMPTY_DATE_FILTER);
   const [historySearch, setHistorySearch] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [amountTouched, setAmountTouched] = useState(false);
 
   useEffect(() => {
     if (reconciliationRun) fetchWithdrawals(asOf || undefined, historyFilter, historySearch);
@@ -21,11 +24,12 @@ export default function WithdrawPage() {
 
   useEffect(() => {
     if (!reconciliationRun) return undefined;
+    if (!amountTouched || amount === '' || Number(amount) <= 0) return undefined;
     const handle = window.setTimeout(() => {
       handlePreviewWithdraw(Number(amount) || 0, asOf || undefined);
     }, 250);
     return () => window.clearTimeout(handle);
-  }, [amount, asOf, reconciliationRun, handlePreviewWithdraw]);
+  }, [amount, amountTouched, asOf, reconciliationRun, handlePreviewWithdraw]);
 
   if (!reconciliationRun) {
     return (
@@ -50,7 +54,7 @@ export default function WithdrawPage() {
       <div className="bank-page-head">
         <div>
           <p className="bank-kicker">Payout account</p>
-          <h2 className="db-page-title">Withdraw</h2>
+          <h2 className="db-page-title">{t('pages.withdrawTitle')}</h2>
           <p className="db-page-sub">Synthetic payout ledger · account RAZOR-AI / 000182. Previously withdrawn funds are excluded. No bank transfer is sent.</p>
         </div>
         <div className="bank-account-chip">
@@ -88,22 +92,38 @@ export default function WithdrawPage() {
           </label>
           <label className="bank-field" data-tour="withdraw-amount">
             Transfer amount (₹)
-            <input className="db-exc-search bank-amount-input" type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00" />
+            <input
+              className="db-exc-search bank-amount-input"
+              type="number"
+              min="0"
+              step="0.01"
+              value={amount}
+              onChange={(event) => {
+                setAmountTouched(true);
+                setAmount(event.target.value);
+              }}
+              onBlur={() => setAmountTouched(true)}
+              placeholder="0.00"
+            />
           </label>
           {avail.available_rupees === 0 && (
             <p className="db-ingest-bad">No additional amount is available for withdrawal for this period.</p>
           )}
-          {!!preview.errors?.length && (
+          {amountTouched && Number(amount) > 0 && !!preview.errors?.length && (
             <ul className="db-ingest-bad">{preview.errors.map((item) => <li key={item}>{item}</li>)}</ul>
           )}
-          <div className="db-waterfall">
-            {(preview.steps || []).map((step) => (
-              <div className="db-waterfall-row" key={step.id}>
-                <span>{step.label}</span>
-                <strong>{formatRupees(step.rupees)}</strong>
-              </div>
-            ))}
-          </div>
+          {Number(amount) > 0 && (preview.steps || []).length ? (
+            <div className="db-waterfall">
+              {(preview.steps || []).map((step) => (
+                <div className="db-waterfall-row" key={step.id}>
+                  <span>{step.label}</span>
+                  <strong>{formatRupees(step.rupees)}</strong>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="db-empty-hint">Enter an amount to see fees, tax and what you will receive.</p>
+          )}
           <button className="db-topbar-cta" type="button" data-tour="withdraw-confirm" disabled={!canConfirm || withdrawing} onClick={() => setConfirmOpen(true)}>
             Review confirmation
           </button>
@@ -148,6 +168,7 @@ export default function WithdrawPage() {
                   if (ok) {
                     setConfirmOpen(false);
                     setAmount('');
+                    setAmountTouched(false);
                   }
                 }}
               >

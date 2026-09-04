@@ -1,6 +1,9 @@
 import React from 'react';
+import { Maximize2 } from 'lucide-react';
 import { useApp } from '../AppContext';
 import { titleCaseType, formatDayLabel } from '../lib/format';
+import ChatToolVisual, { captionFromAnswer } from './ChatToolVisual';
+import { useLanguage } from '../i18n/LanguageContext';
 
 function renderFormattedChatText(text, groundedIds = [], onTagClick) {
   const cleaned = String(text || '').replace(/\*\*(.*?)\*\*/g, '$1');
@@ -32,7 +35,7 @@ function renderFormattedChatText(text, groundedIds = [], onTagClick) {
   return <p>{parts}</p>;
 }
 
-export default function ChatPanel() {
+export default function ChatPanel({ variant = 'compact' }) {
   const {
     visibleChatMessages,
     chatLoading,
@@ -47,100 +50,124 @@ export default function ChatPanel() {
     handleConfirmChatAction,
     inquiryDate,
     metrics,
+    setDashPage,
   } = useApp();
+  const { t } = useLanguage();
+  const fullView = variant === 'full';
 
   const batchId = metrics?.batch?.batch_id;
   const dayLabel = formatDayLabel(inquiryDate);
   const scopeLine = dayLabel
-    ? `Summary for ${dayLabel} · Batch ${batchId || '—'}`
-    : (batchId ? `This batch · ${batchId}` : 'Reconcile a batch, then ask about a day or this batch.');
+    ? t('chat.scopeDay', { day: dayLabel, batch: batchId || '—' })
+    : (batchId ? t('chat.scopeBatch', { batch: batchId }) : t('chat.scopeEmpty'));
   const happenedQuestion = dayLabel
-    ? `What happened on ${dayLabel}?`
-    : 'What happened on the latest day in this batch?';
+    ? t('chat.qHappenedDay', { day: dayLabel })
+    : t('chat.qHappenedLatest');
+
+  const suggestions = [
+    { q: happenedQuestion, needBatch: true, label: happenedQuestion },
+    { q: t('chat.qLower'), needBatch: true, label: t('chat.qLower') },
+    { q: t('chat.qUnresolved'), needBatch: true, label: t('chat.qUnresolved') },
+    { q: t('chat.qExceptions'), needBatch: false, label: t('chat.qExceptions') },
+    { q: t('chat.qStore'), needBatch: false, label: t('chat.qStore') },
+    { q: t('chat.qWhyExc'), needBatch: true, label: t('chat.qWhyExc') },
+    { q: t('chat.qCash'), needBatch: true, label: t('chat.qCash') },
+    { q: t('chat.qGst'), needBatch: true, label: t('chat.qGst') },
+    { q: t('chat.qUnresolvedAmt'), needBatch: true, label: t('chat.qUnresolvedAmt') },
+    { q: t('chat.qDelay'), needBatch: true, label: t('chat.qDelay') },
+  ];
 
   return (
-    <div className="db-card db-chat-card" data-tour="settlement-qa">
-      <h3 className="db-card-title">Settlement Q&A</h3>
+    <div className={`db-card db-chat-card ${fullView ? 'db-chat-card-full' : ''}`} data-tour={fullView ? undefined : 'settlement-qa'}>
+      {fullView ? null : (
+        <div className="db-card-title-row">
+          <h3 className="db-card-title">{t('chat.title')}</h3>
+          <button
+            className="db-chat-expand"
+            type="button"
+            aria-label={t('chat.expand')}
+            title={t('chat.expand')}
+            onClick={() => setDashPage('chat')}
+          >
+            <Maximize2 size={16} strokeWidth={2.25} />
+          </button>
+        </div>
+      )}
       <div className="db-chat-messages">
-        {(visibleChatMessages || []).map((msg) => (
-          <div key={msg.id} className={`db-chat-msg db-chat-${msg.sender}`}>
+        {(visibleChatMessages || []).map((msg) => {
+          const showVisual = fullView && msg.sender === 'bot' && !msg.isSuggested && msg.toolUsed && msg.toolPayload != null;
+          return (
+          <div key={msg.id} className={`db-chat-msg db-chat-${msg.sender}${showVisual ? ' db-chat-bot-visual' : ''}`}>
             {msg.isSuggested ? (
               <div>
-                <p>{msg.text}</p>
+                <p>{t('chat.intro')}</p>
                 <div className="db-chat-suggestions">
-                  <button className="db-suggest-btn" onClick={() => handleSuggestedClick(happenedQuestion)} disabled={!reconciliationRun} type="button">
-                    {happenedQuestion}
-                  </button>
-                  <button className="db-suggest-btn" onClick={() => handleSuggestedClick('Why was the settlement lower?')} disabled={!reconciliationRun} type="button">
-                    Why was the settlement lower?
-                  </button>
-                  <button className="db-suggest-btn" onClick={() => handleSuggestedClick('Show unresolved exceptions from this batch.')} disabled={!reconciliationRun} type="button">
-                    Show unresolved exceptions from this batch.
-                  </button>
-                  <button className="db-suggest-btn" onClick={() => handleSuggestedClick('How do I use the Exceptions page?')} disabled={!isConnected} type="button">
-                    How do I use Exceptions?
-                  </button>
-                  <button className="db-suggest-btn" onClick={() => handleSuggestedClick('How does Store checkout land in Payments?')} disabled={!isConnected} type="button">
-                    How does Store checkout work?
-                  </button>
-                  <button className="db-suggest-btn" onClick={() => handleSuggestedClick('Why are there exceptions?')} disabled={!reconciliationRun} type="button">
-                    Why are there exceptions?
-                  </button>
-                  <button className="db-suggest-btn" onClick={() => handleSuggestedClick('What is my cash position for the next 7 days?')} disabled={!reconciliationRun} type="button">
-                    What is my 7-day cash position?
-                  </button>
-                  <button className="db-suggest-btn" onClick={() => handleSuggestedClick('Which GST tax lines do not match 18% of fee?')} disabled={!reconciliationRun} type="button">
-                    Which GST lines are off?
-                  </button>
-                  <button className="db-suggest-btn" onClick={() => handleSuggestedClick('How much money is currently unresolved?')} disabled={!reconciliationRun} type="button">
-                    How much is unresolved?
-                  </button>
-                  <button className="db-suggest-btn" onClick={() => handleSuggestedClick('What happens if tomorrow’s ₹2 lakh settlement is delayed?')} disabled={!reconciliationRun} type="button">
-                    What if ₹2L is delayed?
-                  </button>
+                  {suggestions.map((item) => (
+                    <button
+                      key={item.q}
+                      className="db-suggest-btn"
+                      onClick={() => handleSuggestedClick(item.q)}
+                      disabled={item.needBatch ? !reconciliationRun : !isConnected}
+                      type="button"
+                    >
+                      {item.label}
+                    </button>
+                  ))}
                 </div>
               </div>
+            ) : showVisual ? (
+              <>
+                <p className="db-chat-caption">{captionFromAnswer(msg.text)}</p>
+                <ChatToolVisual toolUsed={msg.toolUsed} payload={msg.toolPayload} />
+              </>
             ) : (
               renderFormattedChatText(msg.text, msg.groundedIn, handleGroundedTagClick)
             )}
             {msg.pendingConfirmation && (
               <div className="db-chat-suggestions">
-                <button className="db-suggest-btn" type="button" onClick={() => handleConfirmChatAction(true)}>Confirm</button>
-                <button className="db-suggest-btn" type="button" onClick={() => handleConfirmChatAction(false)}>Cancel</button>
+                <button className="db-suggest-btn" type="button" onClick={() => handleConfirmChatAction(true)}>{t('chat.confirm')}</button>
+                <button className="db-suggest-btn" type="button" onClick={() => handleConfirmChatAction(false)}>{t('chat.cancel')}</button>
               </div>
             )}
             {msg.aiAvailable === false && (
-              <p className="text-dim">AI investigation temporarily unavailable. Deterministic financial results remain available.</p>
+              <p className="text-dim">{t('chat.aiDown')}</p>
             )}
           </div>
-        ))}
-        {chatLoading && <div className="db-chat-msg db-chat-bot"><p>Thinking…</p></div>}
+          );
+        })}
+        {chatLoading && <div className="db-chat-msg db-chat-bot"><p>{t('chat.thinking')}</p></div>}
         <div ref={chatBottomRef} />
       </div>
-      <p className="db-chat-scope">{scopeLine}</p>
-      <p className="db-chat-disclaimer">Matching, GST and cash math are deterministic. Only this panel calls Gemini. Ask about the selected day or this batch — figures come from those records.</p>
-      <div className="db-chat-suggestions db-chat-chips">
-        <button className="db-suggest-btn" onClick={() => handleSuggestedClick(happenedQuestion)} disabled={!reconciliationRun || chatLoading} type="button">
-          {happenedQuestion}
-        </button>
-        <button className="db-suggest-btn" onClick={() => handleSuggestedClick('Why was the settlement lower?')} disabled={!reconciliationRun || chatLoading} type="button">
-          Why was the settlement lower?
-        </button>
-        <button className="db-suggest-btn" onClick={() => handleSuggestedClick('Show unresolved exceptions from this batch.')} disabled={!reconciliationRun || chatLoading} type="button">
-          Show unresolved exceptions from this batch.
-        </button>
-      </div>
+      {fullView ? null : (
+        <>
+          <p className="db-chat-scope">{scopeLine}</p>
+          <p className="db-chat-disclaimer">{t('chat.disclaimer')}</p>
+          <div className="db-chat-suggestions db-chat-chips">
+            {suggestions.slice(0, 3).map((item) => (
+              <button
+                key={`chip-${item.q}`}
+                className="db-suggest-btn"
+                onClick={() => handleSuggestedClick(item.q)}
+                disabled={!reconciliationRun || chatLoading}
+                type="button"
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       <form className="db-chat-input-row" onSubmit={handleSendChat}>
         <input
           type="text"
-          placeholder="Ask about a page, payment, GST line, or cash forecast…"
+          placeholder={t('chat.placeholder')}
           className="db-chat-input"
           value={chatInput}
           onChange={(event) => setChatInput(event.target.value)}
           disabled={!isConnected || chatLoading}
         />
         <button type="submit" className="db-chat-send" disabled={!isConnected || !chatInput.trim() || chatLoading}>
-          Send
+          {t('chat.send')}
         </button>
       </form>
     </div>

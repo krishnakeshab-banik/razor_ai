@@ -11,6 +11,8 @@ import {
 } from './lib/format';
 import { EMPTY_DATE_FILTER, dateQuery } from './components/DateRangeFilter';
 import { parseHash, sameHash, toHash } from './lib/routes';
+import { loadRazorpayScript, openRazorpayCheckout } from './lib/razorpay';
+import { getLocale } from './i18n/LanguageContext';
 
 const AppContext = import.meta.hot?.data?.AppContext ?? createContext(null);
 if (import.meta.hot) import.meta.hot.data.AppContext = AppContext;
@@ -32,6 +34,7 @@ export function AppProvider({ children }) {
   const [isConnected, setIsConnected] = useState(false);
   const [batchLoaded, setBatchLoaded] = useState(false);
   const [reconciliationRun, setReconciliationRun] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
   const [closingBooks, setClosingBooks] = useState(false);
   const [resolvingId, setResolvingId] = useState(null);
 
@@ -80,6 +83,7 @@ export function AppProvider({ children }) {
     saveCard: true,
     aiOutcome: 'clean',
   });
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
 
   const flushRoute = useCallback(() => {
     routeFlushRef.current = false;
@@ -111,6 +115,19 @@ export function AppProvider({ children }) {
   const setDashPage = useCallback((page) => {
     const next = typeof page === 'function' ? page(routeRef.current.dashPage) : page;
     patchRoute({ activeTab: 'dashboard', dashPage: next });
+  }, [patchRoute]);
+
+  const goToAdmin = useCallback((page = 'home') => {
+    applyingHashRef.current = false;
+    patchRoute({ activeTab: 'dashboard', dashPage: page });
+    const next = toHash({ ...routeRef.current, activeTab: 'dashboard', dashPage: page });
+    if (!sameHash(window.location.hash, next)) {
+      applyingHashRef.current = true;
+      window.location.hash = next;
+      queueMicrotask(() => {
+        applyingHashRef.current = false;
+      });
+    }
   }, [patchRoute]);
 
   const setMerchantView = useCallback((view) => {
@@ -216,7 +233,7 @@ export function AppProvider({ children }) {
 
   const fetchPayments = useCallback(async () => {
     try {
-      const query = `${dateQuery(paymentFilter)}&q=${encodeURIComponent(paymentSearch)}&page=${paymentPage}&page_size=${DASHBOARD_PAGE_SIZE}&status=${encodeURIComponent(paymentStatus)}`;
+      const query = `${dateQuery(paymentFilter)}&q=${encodeURIComponent(paymentSearch)}&page=${paymentPage}&page_size=100&status=${encodeURIComponent(paymentStatus)}`;
       const data = await api.payments(query);
       setPayments(data.records || []);
       setPaymentsMeta(data);
@@ -320,6 +337,8 @@ export function AppProvider({ children }) {
       } catch {
         setBatchLoaded(false);
       }
+    } finally {
+      setSessionReady(true);
     }
   }, [refreshAfterRun]);
 
@@ -418,38 +437,30 @@ export function AppProvider({ children }) {
   }, [batchLoaded, handleLoadBatch, handleRunReconciliation, isConnected, reconciliationRun]);
 
   useEffect(() => {
-    if (isConnected && activeTab === 'dashboard' && !reconciliationRun) {
-      loadAndReconcileBatch();
+    if (!sessionReady || !isConnected || activeTab !== 'dashboard' || reconciliationRun) {
+      return;
     }
-  }, [activeTab, isConnected, loadAndReconcileBatch, reconciliationRun]);
+    loadAndReconcileBatch();
+  }, [activeTab, isConnected, loadAndReconcileBatch, reconciliationRun, sessionReady]);
 
   useEffect(() => {
-    if (!isConnected || activeTab !== 'dashboard') return undefined;
+    if (!sessionReady || !isConnected || activeTab !== 'dashboard' || !reconciliationRun) return undefined;
 
     const refreshLiveDashboard = async () => {
       try {
         const nextMetrics = await api.metrics();
         setMetrics(nextMetrics);
-        setReconciliationRun(true);
         await fetchExceptions();
         await fetchExceptionSearch();
-        await fetchAnalyticsSummary();
-        await fetchFinanceViews();
         await fetchNotifications();
       } catch {
         /* stay on last snapshot */
       }
     };
 
-    refreshLiveDashboard();
-    const intervalId = window.setInterval(refreshLiveDashboard, 8000);
-    const handleFocus = () => refreshLiveDashboard();
-    window.addEventListener('focus', handleFocus);
-    return () => {
-      window.clearInterval(intervalId);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [activeTab, fetchAnalyticsSummary, fetchExceptionSearch, fetchExceptions, fetchFinanceViews, fetchNotifications, isConnected]);
+    const intervalId = window.setInterval(refreshLiveDashboard, 20000);
+    return () => window.clearInterval(intervalId);
+  }, [activeTab, fetchExceptionSearch, fetchExceptions, fetchNotifications, isConnected, reconciliationRun, sessionReady]);
 
   const handleGenerateFresh = useCallback(async () => {
     if (!isConnected) {
@@ -599,6 +610,7 @@ export function AppProvider({ children }) {
         start: filter.start || undefined,
         end: filter.end || undefined,
         batch_id: metrics?.batch?.batch_id || undefined,
+        language: getLocale(),
       });
       if (data.scope?.date) {
         setInquiryDate(data.scope.date);
@@ -611,6 +623,8 @@ export function AppProvider({ children }) {
         pendingConfirmation: data.pending_confirmation || null,
         aiAvailable: data.ai_available,
         scope: data.scope || null,
+        toolUsed: data.tool_used || null,
+        toolPayload: data.tool_payload ?? null,
       });
       if (data.executed) {
         await refreshAfterRun(data.executed.batch_metrics);
@@ -766,7 +780,8 @@ export function AppProvider({ children }) {
     }
   };
 
-  const addToCart = (product) => {
+  const addToCart = useCallback((product) => {
+    if (!product?.id) return;
     setCart((prev) => {
       const found = prev.find((item) => item.id === product.id);
       if (found) {
@@ -775,40 +790,44 @@ export function AppProvider({ children }) {
       return [...prev, { ...product, qty: 1 }];
     });
     triggerToast(`${product.name} added to cart.`, 'success');
-  };
+  }, [triggerToast]);
 
-  const updateCartQty = (productId, delta) => {
+  const updateCartQty = useCallback((productId, delta) => {
+    if (!productId || !delta) return;
     setCart((prev) => prev
       .map((item) => (item.id === productId ? { ...item, qty: Math.max(0, item.qty + delta) } : item))
       .filter((item) => item.qty > 0));
-  };
+  }, []);
 
-  const removeCartItem = (productId) => {
+  const removeCartItem = useCallback((productId) => {
+    if (!productId) return;
     setCart((prev) => prev.filter((item) => item.id !== productId));
-  };
+  }, []);
 
-  const handleMerchantCheckout = async () => {
+  const handleMerchantCheckout = async ({ synthetic = false } = {}) => {
     if (!cart.length) {
       triggerToast('Add a product to the cart before checkout.', 'warning');
       return;
     }
-    if (!checkoutForm.name || !checkoutForm.email || !checkoutForm.phone || !checkoutForm.address) {
-      triggerToast('Please complete all billing details before paying.', 'warning');
-      return;
-    }
     const amount = Number(merchantTotal.toFixed(2));
-    try {
-      const data = await api.simulatePayment(amount, checkoutForm.aiOutcome || 'clean', {
-        items: cart.map((item) => ({ id: item.id, name: item.name, qty: item.qty, price: item.price })),
-        customer_name: checkoutForm.name,
-        customer_email: checkoutForm.email,
-        payment_method: checkoutForm.paymentMethod,
-      });
+    const extra = {
+      items: cart.map((item) => ({ id: item.id, name: item.name, qty: item.qty, price: item.price })),
+      customer_name: checkoutForm.name || 'Northwind Demo',
+      customer_email: checkoutForm.email || 'demo@northwind.test',
+      payment_method: 'razorpay',
+    };
+    const outcome = checkoutForm.aiOutcome || 'clean';
+
+    const applySuccess = async (data) => {
       setLastPayment({
         ...data.this_payment,
         amountPaid: amount,
-        method: checkoutForm.paymentMethod,
+        method: data.this_payment?.payment_method || 'razorpay',
       });
+      setPaymentFilter(EMPTY_DATE_FILTER);
+      setPaymentStatus('all');
+      setPaymentSearch('');
+      setPaymentPage(1);
       await refreshAfterRun(data.batch_metrics);
       setMerchantView('success');
       setCart([]);
@@ -819,8 +838,60 @@ export function AppProvider({ children }) {
       } else {
         triggerToast('Payment captured. It is now in the reconciliation batch.', 'success');
       }
-    } catch {
-      triggerToast('Checkout simulation failed. Please try again.', 'danger');
+    };
+
+    const runSynthetic = async () => {
+      const data = await api.simulatePayment(amount, outcome, extra);
+      await applySuccess(data);
+    };
+
+    setCheckoutBusy(true);
+    try {
+      if (synthetic) {
+        await runSynthetic();
+        return;
+      }
+      let order;
+      try {
+        order = await api.createRazorpayOrder({ amount_rupees: amount, outcome, ...extra });
+      } catch (error) {
+        if (String(error.message || '').includes('not configured')) {
+          triggerToast('Razorpay test keys are not set — using synthetic capture.', 'warning');
+          await runSynthetic();
+          return;
+        }
+        throw error;
+      }
+      await loadRazorpayScript();
+      const response = await openRazorpayCheckout({
+        key: order.key_id,
+        amount: order.amount,
+        currency: order.currency || 'INR',
+        name: 'Northwind Goods',
+        description: 'Demo checkout',
+        order_id: order.order_id,
+        prefill: {
+          name: extra.customer_name,
+          email: extra.customer_email,
+          contact: checkoutForm.phone?.trim() || '9999999999',
+        },
+        notes: { demo: 'northwind' },
+        theme: { color: '#0C2651' },
+      });
+      const data = await api.verifyRazorpayPayment({
+        razorpay_order_id: response.razorpay_order_id,
+        razorpay_payment_id: response.razorpay_payment_id,
+        razorpay_signature: response.razorpay_signature,
+      });
+      await applySuccess(data);
+    } catch (error) {
+      if (String(error.message || '') === 'Checkout cancelled') {
+        triggerToast('Checkout cancelled.', 'warning');
+      } else {
+        triggerToast(error.message || 'Checkout failed. Please try again.', 'danger');
+      }
+    } finally {
+      setCheckoutBusy(false);
     }
   };
 
@@ -947,7 +1018,7 @@ export function AppProvider({ children }) {
 
   const value = {
     activeTab, setActiveTab,
-    dashPage, setDashPage,
+    dashPage, setDashPage, goToAdmin,
     expandedExc, setExpandedExc,
     selectedExcId, setSelectedExcId,
     selectedException,
@@ -969,7 +1040,7 @@ export function AppProvider({ children }) {
     chatLoading, chatBottomRef, visibleChatMessages,
     batchInputRef,
     merchantView, setMerchantView,
-    cart, demoProducts, checkoutForm, setCheckoutForm,
+    cart, demoProducts, checkoutForm, setCheckoutForm, checkoutBusy,
     merchantSubtotal, merchantDiscount, merchantTax, merchantTotal, lastPayment,
     auditLogs, visibleAuditLogs, filteredAuditLogs: auditLogs,
     profileMenuOpen, setProfileMenuOpen,

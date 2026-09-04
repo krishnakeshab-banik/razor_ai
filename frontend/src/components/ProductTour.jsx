@@ -1,25 +1,39 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Mic, MicOff } from 'lucide-react';
 import { LIFECYCLE_STAGES } from '../tour/steps';
 import { useTour } from '../tour/TourContext';
 import { useApp } from '../AppContext';
+import { useLanguage } from '../i18n/LanguageContext';
+import { localizeTourStep } from '../i18n/tourHi';
+import { speakText, stopSpeech, speechSupported } from '../i18n/speech';
 
-const PAGE_TITLES = {
-  home: 'Dashboard',
-  payments: 'Payments',
-  reconciliation: 'Reconciliation',
-  exceptions: 'Exceptions',
-  cash: 'Cash',
-  gst: 'GST',
-  withdraw: 'Withdraw',
-  audit: 'Audit logs',
-  knowledge: 'Rules',
-  reports: 'Reports',
-  store: 'the shop',
-  cart: 'the cart',
-  checkout: 'checkout',
-  orders: 'Past orders',
-  success: 'payment success',
-};
+const VOICE_KEY = 'razorai-tour-voice';
+
+function readVoicePref() {
+  try {
+    return sessionStorage.getItem(VOICE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeVoicePref(on) {
+  try {
+    sessionStorage.setItem(VOICE_KEY, on ? '1' : '0');
+  } catch {
+    /* ignore */
+  }
+}
+
+function stepNarration(step, waiting, t) {
+  if (waiting) return t('tour.waiting');
+  return [
+    step.title,
+    step.body,
+    step.meaning ? `${t('tour.meaning')}. ${step.meaning}` : '',
+    step.action ? `${t('tour.action')}. ${step.action}` : '',
+  ].filter(Boolean).join('. ');
+}
 
 const PAD = 6;
 const TIP_WIDTH = 420;
@@ -65,9 +79,14 @@ export default function ProductTour() {
     next, back, skip, finish, startTour, closeChooser, goDashboard, dismissComplete, canStartFromHere,
   } = useTour();
   const { dashPage, activeTab, merchantView } = useApp();
-  const hereLabel = activeTab === 'merchant-checkout'
-    ? (PAGE_TITLES[merchantView] || PAGE_TITLES.store)
-    : (PAGE_TITLES[dashPage] || 'this page');
+  const { t, locale } = useLanguage();
+  const hereKey = activeTab === 'merchant-checkout'
+    ? (merchantView || 'store')
+    : (dashPage || 'home');
+  const hereLabel = t(`pagesShort.${hereKey}`) || t('pagesShort.thisPage');
+  const visibleStep = localizeTourStep(step, locale);
+  const canSpeak = speechSupported();
+  const [voiceOn, setVoiceOn] = useState(readVoicePref);
 
   const tipRef = useRef(null);
   const [pos, setPos] = useState(() => placeTooltip(null));
@@ -82,42 +101,67 @@ export default function ProductTour() {
   useLayoutEffect(() => {
     if (!active) return undefined;
     const height = tipRef.current?.offsetHeight || 280;
-    const next = placeTooltip(highlight, height);
+    const nextPos = placeTooltip(highlight, height);
     setPos((prev) => (
-      prev.top === next.top
-      && prev.left === next.left
-      && prev.width === next.width
-      && prev.arrowLeft === next.arrowLeft
-      && prev.side === next.side
+      prev.top === nextPos.top
+      && prev.left === nextPos.left
+      && prev.width === nextPos.width
+      && prev.arrowLeft === nextPos.arrowLeft
+      && prev.side === nextPos.side
         ? prev
-        : next
+        : nextPos
     ));
     return undefined;
-  }, [active, highlight, stepIndex, waiting, targetReady]);
+  }, [active, highlight, stepIndex, waiting, targetReady, locale]);
+
+  useEffect(() => {
+    if (!active || !visibleStep || !voiceOn || !canSpeak) {
+      stopSpeech();
+      return undefined;
+    }
+    speakText(stepNarration(visibleStep, waiting, t), locale);
+    return () => stopSpeech();
+  }, [active, visibleStep?.id, stepIndex, waiting, voiceOn, locale, canSpeak, t]);
+
+  useEffect(() => () => stopSpeech(), []);
+
+  const toggleVoice = () => {
+    setVoiceOn((prev) => {
+      const nextOn = !prev;
+      writeVoicePref(nextOn);
+      if (!nextOn) stopSpeech();
+      return nextOn;
+    });
+  };
+
+  const handleSkip = () => { stopSpeech(); skip(); };
+  const handleFinish = () => { stopSpeech(); finish(); };
+  const handleCloseChooser = () => { stopSpeech(); closeChooser(); };
+  const handleDismissComplete = () => { stopSpeech(); dismissComplete(); };
 
   if (chooser) {
     return (
       <div className="tour-modal-backdrop" role="dialog" aria-labelledby="tour-chooser-title">
         <div className="tour-chooser">
-          <h2 id="tour-chooser-title">How a rupee moves through Razor-AI</h2>
-          <p>Live walkthrough from the shop through Payment, Fee, Refund, Settlement, Reconciliation, Exception, Investigation, and human resolution — not a slideshow.</p>
+          <h2 id="tour-chooser-title">{t('tour.chooserTitle')}</h2>
+          <p>{t('tour.chooserBody')}</p>
           <button type="button" className="tour-btn tour-btn-primary" onClick={() => startTour()}>
-            Full tour from the shop
+            {t('tour.full')}
           </button>
           {canStartFromHere && (
             <button type="button" className="tour-btn tour-btn-ghost" onClick={() => startTour({ fromCurrent: true })}>
-              Start from {hereLabel}
+              {t('tour.fromHere', { page: hereLabel })}
             </button>
           )}
           <button type="button" className="tour-btn tour-btn-ghost" onClick={() => startTour({ handsOn: true })}>
-            Hands-on from the shop
+            {t('tour.handsOn')}
           </button>
           {canStartFromHere && (
             <button type="button" className="tour-btn tour-btn-ghost" onClick={() => startTour({ handsOn: true, fromCurrent: true })}>
-              Hands-on from {hereLabel}
+              {t('tour.handsOnHere', { page: hereLabel })}
             </button>
           )}
-          <button type="button" className="tour-btn tour-btn-text" onClick={closeChooser}>Cancel</button>
+          <button type="button" className="tour-btn tour-btn-text" onClick={handleCloseChooser}>{t('tour.cancel')}</button>
         </div>
       </div>
     );
@@ -127,29 +171,24 @@ export default function ProductTour() {
     return (
       <div className="tour-modal-backdrop" role="dialog" aria-labelledby="tour-complete-title">
         <div className="tour-complete">
-          <h2 id="tour-complete-title">You have walked the close loop</h2>
-          <p>A purchase can now be traced from capture to a human decision. The tour did not change the books.</p>
+          <h2 id="tour-complete-title">{t('tour.completeTitle')}</h2>
+          <p>{t('tour.completeBody')}</p>
           <ul className="tour-complete-list">
-            <li>Shop & capture</li>
-            <li>Fee & GST</li>
-            <li>Refund</li>
-            <li>Settlement / cash</li>
-            <li>Reconciliation</li>
-            <li>Exception queue</li>
-            <li>Investigation</li>
-            <li>Human resolution</li>
+            {LIFECYCLE_STAGES.map((stage) => (
+              <li key={stage}>{t(`lifecycle.${stage}`)}</li>
+            ))}
           </ul>
-          <p className="tour-complete-note">Try a planted break yourself: Store → Fee miscalculation or Missing settlement → Pay → Notifications → Explain this difference.</p>
-          <button type="button" className="tour-btn tour-btn-primary" onClick={goDashboard}>Explore Dashboard →</button>
-          <button type="button" className="tour-btn tour-btn-text" onClick={dismissComplete}>Close</button>
+          <p className="tour-complete-note">{t('tour.completeNote')}</p>
+          <button type="button" className="tour-btn tour-btn-primary" onClick={goDashboard}>{t('tour.explore')}</button>
+          <button type="button" className="tour-btn tour-btn-text" onClick={handleDismissComplete}>{t('tour.close')}</button>
         </div>
       </div>
     );
   }
 
-  if (!active || !step) return null;
+  if (!active || !visibleStep) return null;
 
-  const locked = Boolean(step.lockTarget);
+  const locked = Boolean(visibleStep.lockTarget);
   const progress = ((stepIndex + 1) / total) * 100;
 
   return (
@@ -185,44 +224,58 @@ export default function ProductTour() {
         <div className="tour-popover-progress" aria-hidden="true">
           <span style={{ width: `${progress}%` }} />
         </div>
-        <button type="button" className="tour-popover-close" onClick={skip} aria-label="Skip tour">×</button>
+        <button type="button" className="tour-popover-close" onClick={handleSkip} aria-label={t('tour.skip')}>×</button>
         <div className="tour-popover-body">
-          <p className="tour-popover-kicker">{step.section}</p>
-          <h3 id="tour-step-title">{step.title}</h3>
-          <p>{waiting ? 'Waiting for this page to load…' : step.body}</p>
-          {!waiting && step.meaning && (
+          <p className="tour-popover-kicker">{visibleStep.section}</p>
+          <h3 id="tour-step-title">{visibleStep.title}</h3>
+          <p>{waiting ? t('tour.waiting') : visibleStep.body}</p>
+          {!waiting && visibleStep.meaning && (
             <div className="tour-callout">
-              <strong>What this means</strong>
-              <p>{step.meaning}</p>
+              <strong>{t('tour.meaning')}</strong>
+              <p>{visibleStep.meaning}</p>
             </div>
           )}
-          {!waiting && step.action && (
+          {!waiting && visibleStep.action && (
             <div className="tour-callout tour-callout-action">
-              <strong>What you should do</strong>
-              <p>{step.action}</p>
+              <strong>{t('tour.action')}</strong>
+              <p>{visibleStep.action}</p>
             </div>
           )}
           {!targetReady && !waiting && (
-            <p className="tour-missing">This control is not on screen yet. Load a batch from Reconciliation, or continue.</p>
+            <p className="tour-missing">{t('tour.missing')}</p>
           )}
-          {tryIt && step.tryPrompt && <p className="tour-try">{step.tryPrompt}</p>}
-          {step.lifecycle && (
+          {tryIt && visibleStep.tryPrompt && <p className="tour-try">{visibleStep.tryPrompt}</p>}
+          {visibleStep.lifecycle && (
             <ol className="tour-lifecycle" aria-label="Close loop">
               {LIFECYCLE_STAGES.map((stage) => (
-                <li key={stage} className={step.lifecycle === stage ? 'is-active' : ''}>{stage}</li>
+                <li key={stage} className={visibleStep.lifecycle === stage ? 'is-active' : ''}>{t(`lifecycle.${stage}`)}</li>
               ))}
             </ol>
           )}
         </div>
+        {canSpeak && (
+          <div className="tour-voice-row">
+            <button
+              type="button"
+              className={`tour-voice ${voiceOn ? 'is-on' : ''}`}
+              onClick={toggleVoice}
+              aria-pressed={voiceOn}
+              title={t('tour.voiceHint')}
+            >
+              {voiceOn ? <Mic size={14} strokeWidth={2.25} /> : <MicOff size={14} strokeWidth={2.25} />}
+              {voiceOn ? t('tour.voiceOn') : t('tour.voiceOff')}
+            </button>
+          </div>
+        )}
         <div className="tour-popover-footer">
           <button type="button" className="tour-btn tour-btn-back" onClick={back} disabled={stepIndex === 0}>
-            Back
+            {t('tour.back')}
           </button>
-          <span className="tour-popover-count">{stepIndex + 1} of {total}</span>
+          <span className="tour-popover-count">{t('tour.of', { current: stepIndex + 1, total })}</span>
           {stepIndex + 1 >= total ? (
-            <button type="button" className="tour-btn tour-btn-next" onClick={finish}>Finish</button>
+            <button type="button" className="tour-btn tour-btn-next" onClick={handleFinish}>{t('tour.finish')}</button>
           ) : (
-            <button type="button" className="tour-btn tour-btn-next" onClick={next}>Next</button>
+            <button type="button" className="tour-btn tour-btn-next" onClick={next}>{t('tour.next')}</button>
           )}
         </div>
         <span className="tour-popover-brand">Razor-AI</span>

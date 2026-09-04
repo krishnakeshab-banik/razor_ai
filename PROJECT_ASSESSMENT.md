@@ -1,6 +1,6 @@
 # Razor-AI Project Assessment
 
-**Assessment date:** 2026-09-02  
+**Assessment date:** 2026-09-05  
 **Perspective:** Razorpay payment operations and engineering review  
 **Current stage:** Working AI Finance Controller demo for Buildathon Track 04. Not a production merchant integration.
 
@@ -23,9 +23,9 @@ Measured detection against a **hidden** generated answer key is fixture correctn
 - Synthetic withdrawals: eligibility, preview waterfall, confirm (not a bank transfer).
 - Controller intel: briefing, action queue, what-changed, clusters, health, aging, search, timelines.
 - Human-taught rules and resolution memory (guidance only; not auto-applied).
-- Grounded chatbot with tools; invented `pay_…` IDs are rejected; confirm path for consequential chat actions. Product/how-to questions work without a batch. Secrets, `.env`, answer keys, and customer contact fields are stripped or refused.
-- Dashboard home exception list and chat are height-capped with internal scroll.
-- Interactive product tour on the live UI (Manual guide). The tour never mutates financial records.
+- Grounded chatbot with tools; invented `pay_…` IDs are rejected; confirm path for consequential chat actions. Product/how-to questions work without a batch. Secrets, `.env`, answer keys, and customer contact fields are stripped or refused. **EN | हिं** switches dashboard chrome and asks Gemini to answer in Hindi.
+- Dashboard home exception list and chat are height-capped with internal scroll; a full **Settlement Q&A** page shares the same thread.
+- Interactive product tour on the live UI (Manual guide). The tour never mutates financial records. Each step can turn mic narration on or off in the selected language.
 - Tests: `test_reconciliation`, `test_explainations`, `test_chatbot`, `test_demo_payment`, `test_api`, `test_books`, `test_controller_features`, `test_ops_features`, `test_controller_intel`.
 
 ## Honest limits

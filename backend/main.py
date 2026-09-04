@@ -24,17 +24,20 @@ import uuid
 from datetime import datetime, timezone
 
 import pandas as pd
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from data.generate_data import generate_batch
 
 from cash import cash_alerts, compute_cash_position, what_if
 from catalog import list_payments, public_payment, search_exceptions
-from chatbot import ask
+from chatbot import ask, chat_copy
 from config import ALLOWED_GENERATE_COUNTS, MAX_UPLOAD_BYTES, public_config
 from controller_intel import (
     action_queue, build_briefing, cash_gap, cluster_exceptions, compare_periods,
@@ -42,7 +45,8 @@ from controller_intel import (
     merchant_profiles, metrics_from_frame, performance_metrics, proposed_chat_action,
     record_timeline, refund_intelligence, search_finance, snapshot_payload,
 )
-from demo_payment import apply_refund, build_demo_transaction
+from demo_payment import VALID_OUTCOMES, apply_refund, build_demo_transaction, map_razorpay_payment
+import razorpay_gateway
 from database import (
     init_db, log_audit, get_audit_trail, reset_db,
     save_investigation, save_analyst_note, list_analyst_notes,
@@ -92,6 +96,7 @@ _state = {
     "snapshots": [],
     "pending_chat_action": None,
     "last_focus_payment_id": None,
+    "razorpay_pending": {},
 }
 
 
@@ -102,6 +107,7 @@ class ChatRequest(BaseModel):
     start: str | None = None
     end: str | None = None
     batch_id: str | None = None
+    language: str | None = None
 
 
 class DemoPaymentRequest(BaseModel):
@@ -111,6 +117,21 @@ class DemoPaymentRequest(BaseModel):
     customer_name: str | None = None
     customer_email: str | None = None
     payment_method: str | None = None
+
+
+class RazorpayCreateOrderRequest(BaseModel):
+    amount_rupees: float
+    outcome: str = "clean"
+    items: list[dict] | None = None
+    customer_name: str | None = None
+    customer_email: str | None = None
+    payment_method: str | None = None
+
+
+class RazorpayVerifyRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
 
 
 class RefundRequest(BaseModel):
@@ -192,6 +213,64 @@ def _new_batch_meta(source: str, count: int, extra: dict | None = None) -> dict:
     if extra:
         meta.update(extra)
     return meta
+
+
+def _ingest_demo_rows(
+    rows: list[dict],
+    *,
+    outcome: str,
+    items: list[dict] | None,
+    customer_name: str | None,
+    customer_email: str | None,
+    payment_method: str | None,
+    audit_source: str,
+):
+    """Append live checkout rows, reconcile, audit, notify, and persist the store order."""
+    new_transactions = pd.DataFrame(rows)
+    if _state["transactions"] is None:
+        _state["transactions"] = new_transactions
+        _state["batch_meta"] = _new_batch_meta("ecommerce_demo", len(new_transactions))
+    else:
+        _state["transactions"] = pd.concat(
+            [_state["transactions"], new_transactions], ignore_index=True
+        )
+        if _state["batch_meta"]:
+            _state["batch_meta"]["record_count"] = int(len(_state["transactions"]))
+
+    _state["reconciled"] = reconcile(_state["transactions"])
+    reconciled_rows = _state["reconciled"].tail(len(rows))
+    for _, row in reconciled_rows.iterrows():
+        row_dict = row.to_dict()
+        if row_dict["reconciliation_status"] == "exception":
+            log_audit("exception", row_dict["payment_id"], explain(row_dict), audit_source)
+        else:
+            log_audit("match", row_dict["payment_id"], "Matched within tolerance", audit_source)
+
+    raw = reconciled_rows.iloc[-1].to_dict()
+    payment = {key: json_safe(value) for key, value in raw.items()}
+    payment["explanation"] = explain(raw)
+    payment["suggested_action"] = suggest(raw.get("mismatch_type"))
+    created = notify_new_exceptions(
+        [row.to_dict() | {"explanation": explain(row.to_dict())} for _, row in reconciled_rows.iterrows()],
+        audit_source,
+    )
+    insert_store_order(
+        payment_id=payment["payment_id"],
+        order_id=payment.get("order_id"),
+        amount_paise=int(float(payment.get("amount") or 0)),
+        status=str(payment.get("status") or "captured"),
+        outcome=outcome,
+        items_json=json.dumps(items or []),
+        customer_name=customer_name,
+        customer_email=customer_email,
+        payment_method=payment_method or str(payment.get("payment_method") or "upi"),
+    )
+    _capture_snapshot()
+    return {
+        "this_payment": payment,
+        "batch_metrics": _enrich_metrics(compute_metrics(_state["reconciled"])),
+        "notifications": created,
+    }
 
 
 def _reset_run_state():
@@ -642,7 +721,7 @@ def chat(req: ChatRequest):
     if proposed and proposed.get("type") == "confirm_pending":
         if not pending:
             return {
-                "answer": "There is no pending finance action to confirm.",
+                "answer": chat_copy(req.language, "There is no pending finance action to confirm.", "पुष्टि करने के लिए कोई लंबित वित्त क्रिया नहीं है।"),
                 "grounded_in": [],
                 "tools_used": ["confirm_action"],
                 "ai_available": False,
@@ -656,7 +735,11 @@ def chat(req: ChatRequest):
         _state["pending_chat_action"] = None
         log_audit("chat_action", pending["payment_id"], f"Confirmed {pending['action']}", "ops_controller")
         return {
-            "answer": f"Confirmed. {pending['action']} applied to {pending['payment_id']}.",
+            "answer": chat_copy(
+                req.language,
+                f"Confirmed. {pending['action']} applied to {pending['payment_id']}.",
+                f"पुष्टि हो गई। {pending['action']} {pending['payment_id']} पर लागू हुआ।",
+            ),
             "grounded_in": [pending["payment_id"]],
             "tools_used": ["update_exception_status"],
             "ai_available": True,
@@ -674,6 +757,7 @@ def chat(req: ChatRequest):
             "end": req.end,
             "batch_id": req.batch_id or (_state.get("batch_meta") or {}).get("batch_id"),
         },
+        language=req.language,
     )
     if result.get("pending_confirmation"):
         _state["pending_chat_action"] = result["pending_confirmation"]
@@ -1239,6 +1323,7 @@ def demo_reset():
     _state["snapshots"] = []
     _state["pending_chat_action"] = None
     _state["last_focus_payment_id"] = None
+    _state["razorpay_pending"] = {}
     reset_db()
     return {"status": "reset"}
 
@@ -1254,51 +1339,103 @@ def simulate_payment(req: DemoPaymentRequest):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    new_transactions = pd.DataFrame(rows)
-    if _state["transactions"] is None:
-        _state["transactions"] = new_transactions
-        _state["batch_meta"] = _new_batch_meta("ecommerce_demo", len(new_transactions))
-    else:
-        _state["transactions"] = pd.concat(
-            [_state["transactions"], new_transactions], ignore_index=True
-        )
-        if _state["batch_meta"]:
-            _state["batch_meta"]["record_count"] = int(len(_state["transactions"]))
-
-    _state["reconciled"] = reconcile(_state["transactions"])
-    reconciled_rows = _state["reconciled"].tail(len(rows))
-    for _, row in reconciled_rows.iterrows():
-        row_dict = row.to_dict()
-        if row_dict["reconciliation_status"] == "exception":
-            log_audit("exception", row_dict["payment_id"], explain(row_dict), "ecommerce_demo")
-        else:
-            log_audit("match", row_dict["payment_id"], "Matched within tolerance", "ecommerce_demo")
-
-    raw = reconciled_rows.iloc[-1].to_dict()
-    payment = {key: json_safe(value) for key, value in raw.items()}
-    payment["explanation"] = explain(raw)
-    payment["suggested_action"] = suggest(raw.get("mismatch_type"))
-    created = notify_new_exceptions(
-        [row.to_dict() | {"explanation": explain(row.to_dict())} for _, row in reconciled_rows.iterrows()],
-        "ecommerce_demo",
-    )
-    insert_store_order(
-        payment_id=payment["payment_id"],
-        order_id=payment.get("order_id"),
-        amount_paise=int(float(payment.get("amount") or 0)),
-        status=str(payment.get("status") or "captured"),
+    return _ingest_demo_rows(
+        rows,
         outcome=req.outcome,
-        items_json=json.dumps(req.items or []),
+        items=req.items,
         customer_name=req.customer_name,
         customer_email=req.customer_email,
-        payment_method=req.payment_method or str(payment.get("payment_method") or "upi"),
+        payment_method=req.payment_method,
+        audit_source="ecommerce_demo",
     )
-    _capture_snapshot()
-    return {
-        "this_payment": payment,
-        "batch_metrics": _enrich_metrics(compute_metrics(_state["reconciled"])),
-        "notifications": created,
+
+
+@app.post("/demo/razorpay/create-order")
+def create_razorpay_order(req: RazorpayCreateOrderRequest):
+    """Create a Razorpay Test Mode order. Returns order_id and the public key_id only."""
+    if req.amount_rupees <= 0:
+        raise HTTPException(status_code=400, detail="amount_rupees must be positive")
+    if req.outcome not in VALID_OUTCOMES:
+        raise HTTPException(status_code=400, detail=f"Unknown outcome '{req.outcome}'")
+    if not razorpay_gateway.is_configured():
+        raise HTTPException(status_code=503, detail="Razorpay test keys are not configured")
+
+    amount_paise = int(round(req.amount_rupees * 100))
+    try:
+        order = razorpay_gateway.create_order(amount_paise, notes={"outcome": req.outcome, "demo": "northwind"})
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Could not create Razorpay order") from exc
+
+    order_id = str(order.get("id") or "")
+    if not order_id:
+        raise HTTPException(status_code=502, detail="Razorpay order was missing id")
+
+    _state["razorpay_pending"][order_id] = {
+        "outcome": req.outcome,
+        "items": req.items or [],
+        "customer_name": req.customer_name,
+        "customer_email": req.customer_email,
+        "payment_method": req.payment_method,
+        "amount_paise": amount_paise,
     }
+    return {
+        "order_id": order_id,
+        "key_id": razorpay_gateway.public_key_id(),
+        "amount": int(order.get("amount") or amount_paise),
+        "currency": order.get("currency") or "INR",
+    }
+
+
+@app.post("/demo/razorpay/verify")
+def verify_razorpay_payment(req: RazorpayVerifyRequest):
+    """HMAC-verify the Checkout.js callback, fetch the payment, then ingest like simulate-payment."""
+    if not razorpay_gateway.is_configured():
+        raise HTTPException(status_code=503, detail="Razorpay test keys are not configured")
+    if not (req.razorpay_order_id and req.razorpay_payment_id and req.razorpay_signature):
+        raise HTTPException(status_code=400, detail="order_id, payment_id and signature are required")
+    if not razorpay_gateway.verify_payment_signature(
+        req.razorpay_order_id, req.razorpay_payment_id, req.razorpay_signature
+    ):
+        raise HTTPException(status_code=400, detail="Invalid Razorpay payment signature")
+
+    try:
+        fetched = razorpay_gateway.fetch_payment(req.razorpay_payment_id)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Could not fetch Razorpay payment") from exc
+
+    if str(fetched.get("order_id") or "") != req.razorpay_order_id:
+        raise HTTPException(status_code=400, detail="Payment does not belong to this order")
+    if str(fetched.get("status") or "") not in {"captured", "authorized"}:
+        raise HTTPException(status_code=400, detail="Payment is not captured")
+
+    pending = _state["razorpay_pending"].pop(req.razorpay_order_id, None)
+    if pending is None:
+        try:
+            order = razorpay_gateway.fetch_order(req.razorpay_order_id)
+            notes = order.get("notes") or {}
+            pending = {"outcome": notes.get("outcome") or "clean"}
+        except Exception:
+            pending = {"outcome": "clean"}
+
+    outcome = pending.get("outcome") or "clean"
+    try:
+        rows = map_razorpay_payment(fetched, outcome)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return _ingest_demo_rows(
+        rows,
+        outcome=outcome,
+        items=pending.get("items") or [],
+        customer_name=pending.get("customer_name"),
+        customer_email=pending.get("customer_email"),
+        payment_method=pending.get("payment_method"),
+        audit_source="razorpay_test_api",
+    )
 
 
 @app.get("/")

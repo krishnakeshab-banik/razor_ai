@@ -492,7 +492,7 @@ def insert_store_order(payment_id, order_id, amount_paise, status, outcome, item
             items_json, customer_name, customer_email, payment_method)
            VALUES (?,?,?,?,0,?,?,?,?,?,?)""",
         (
-            payment_id, order_id, datetime.now(timezone.utc).isoformat(), int(amount_paise or 0),
+            payment_id, order_id, datetime.now().isoformat(timespec="seconds"), int(amount_paise or 0),
             status, outcome, items_json, customer_name, customer_email, payment_method,
         ),
     )

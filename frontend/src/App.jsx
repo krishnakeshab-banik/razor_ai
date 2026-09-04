@@ -10,10 +10,23 @@ import ProductTour from './components/ProductTour';
 import Toasts from './components/Toasts';
 import CircularNavDock from './components/ui/circular-nav-dock';
 import { TourProvider } from './tour/TourContext';
+import { LanguageProvider, useLanguage } from './i18n/LanguageContext';
+import LanguageToggle from './components/LanguageToggle';
 
 function Shell() {
   const { activeTab, setActiveTab, triggerToast } = useApp();
+  const { t } = useLanguage();
   const marketing = activeTab !== 'dashboard' && activeTab !== 'merchant-checkout';
+
+  React.useEffect(() => {
+    const locked = activeTab === 'dashboard' || activeTab === 'merchant-checkout';
+    document.documentElement.classList.toggle('app-locked', locked);
+    document.body.classList.toggle('app-locked', locked);
+    return () => {
+      document.documentElement.classList.remove('app-locked');
+      document.body.classList.remove('app-locked');
+    };
+  }, [activeTab]);
 
   return (
     <div className="app-root-container">
@@ -22,7 +35,7 @@ function Shell() {
           <div className="container header-container">
             <button className="logo" onClick={() => setActiveTab('overview')} type="button">
               <span className="logo-accent">Razor-AI</span>
-              <span className="logo-badge">AI Finance Controller</span>
+              <span className="logo-badge">{t('chrome.subtitle')}</span>
             </button>
             <nav className="nav">
               <button className={`nav-link ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')} type="button">Overview</button>
@@ -30,6 +43,7 @@ function Shell() {
               <button className={`nav-link ${activeTab === 'roadmap' ? 'active' : ''}`} onClick={() => setActiveTab('roadmap')} type="button">Roadmap</button>
             </nav>
             <div className="header-actions">
+              <LanguageToggle compact />
               <button className="btn btn-secondary-outline" type="button" onClick={() => triggerToast('Demo mode — use Get started. No login required.', 'success')}>
                 Sign in
               </button>
@@ -82,11 +96,13 @@ function Shell() {
 
 export default function App() {
   return (
-    <AppProvider>
-      <TourProvider>
-        <Shell />
-        <ProductTour />
-      </TourProvider>
-    </AppProvider>
+    <LanguageProvider>
+      <AppProvider>
+        <TourProvider>
+          <Shell />
+          <ProductTour />
+        </TourProvider>
+      </AppProvider>
+    </LanguageProvider>
   );
 }

@@ -4,6 +4,7 @@ import ChatPanel, { ExceptionBadge } from '../components/ChatPanel';
 import DateRangeFilter from '../components/DateRangeFilter';
 import NotificationMenu from '../components/NotificationMenu';
 import CashPositionPage from './CashPage';
+import ChatPage from './ChatPage';
 import GstPage from './GstPage';
 import GuidePage from './GuidePage';
 import KnowledgePage from './KnowledgePage';
@@ -12,6 +13,8 @@ import WithdrawPage from './WithdrawPage';
 import { evidenceLabel, formatAge, formatCompactRupees, formatDelta, formatEvidenceDetail, formatPaise, formatRupees, formatTimestamp, friendlyExplanation, matchPercent, titleCaseType } from '../lib/format';
 import { api } from '../lib/api';
 import { useTour } from '../tour/TourContext';
+import { useLanguage } from '../i18n/LanguageContext';
+import LanguageToggle from '../components/LanguageToggle';
 
 function Pagination({ page, total, onPrev, onNext }) {
   if (total <= 1) return null;
@@ -24,11 +27,11 @@ function Pagination({ page, total, onPrev, onNext }) {
   );
 }
 
-function homeGreeting() {
+function homeGreeting(t) {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
+  if (hour < 12) return t('home.morning');
+  if (hour < 17) return t('home.afternoon');
+  return t('home.evening');
 }
 
 function changeTone(metric, delta) {
@@ -44,6 +47,7 @@ function HomePage() {
     visibleAuditLogs, auditPage, setAuditPage, totalAuditPages, DASHBOARD_PAGE_SIZE, auditLogs,
     cash, closeReport, setDashPage, setSelectedExcId,
   } = useApp();
+  const { t } = useLanguage();
   const [intel, setIntel] = React.useState(null);
   const [intelLoading, setIntelLoading] = React.useState(false);
   const [versus, setVersus] = React.useState('yesterday');
@@ -81,55 +85,59 @@ function HomePage() {
     <div className="db-page">
       <div className="db-page-heading" data-tour="dashboard-overview">
         <div>
-          <p className="bank-kicker">{homeGreeting()}</p>
-          <h2 className="db-page-title">Controller home</h2>
+          <p className="bank-kicker">{homeGreeting(t)}</p>
+          <h2 className="db-page-title">{t('home.title')}</h2>
           <p className="db-page-sub">
             {reconciliationRun
-              ? `${metrics?.total_records?.toLocaleString('en-IN') || 0} payments · ${matchPercent(metrics)} matched · ${openCount} open exceptions`
-              : 'Match rate, cash, and the exceptions that still need a human — not a generated UTR.'}
+              ? t('home.summary', {
+                payments: metrics?.total_records?.toLocaleString('en-IN') || 0,
+                match: matchPercent(metrics),
+                open: openCount,
+              })
+              : t('home.emptySub')}
           </p>
         </div>
         {reconciliationRun ? (
           <button className="db-topbar-cta" type="button" onClick={() => { setSelectedExcId(null); setDashPage('exceptions'); }}>
-            Exception queue{openCount != null ? ` · ${openCount}` : ''}
+            {t('home.queue')}{openCount != null ? ` · ${openCount}` : ''}
           </button>
         ) : (
           <button className="db-ghost-btn" type="button" onClick={() => setDashPage('reconciliation')}>
-            Load a batch
+            {t('home.loadBatch')}
           </button>
         )}
       </div>
 
       <div className="home-kpi-row" data-tour="dashboard-metrics">
         <div className="home-kpi">
-          <span>Match rate</span>
+          <span>{t('home.matchRate')}</span>
           <strong>{reconciliationRun ? matchPercent(metrics) : '—'}</strong>
           <div className="home-kpi-bar" aria-hidden="true"><i style={{ width: `${matchWidth}%` }} /></div>
-          <small>{reconciliationRun ? 'Deterministic matching' : 'Run reconciliation first'}</small>
+          <small>{reconciliationRun ? t('home.matchHint') : t('home.runFirst')}</small>
         </div>
         <div className="home-kpi">
-          <span>Gross processed</span>
+          <span>{t('home.gross')}</span>
           <strong>{reconciliationRun ? (numbers.gmv_rupees != null ? formatRupees(numbers.gmv_rupees) : (deskPending ? '…' : formatPaise(metrics?.amount_reconciled))) : '—'}</strong>
-          <small>{metrics?.total_records != null ? `${Number(metrics.total_records).toLocaleString('en-IN')} records` : 'No batch loaded'}</small>
+          <small>{metrics?.total_records != null ? t('home.records', { count: Number(metrics.total_records).toLocaleString('en-IN') }) : t('home.noBatch')}</small>
         </div>
         <div className="home-kpi">
-          <span>Amount matched</span>
+          <span>{t('home.amountMatched')}</span>
           <strong>{reconciliationRun && metrics ? formatPaise(metrics.amount_reconciled) : '—'}</strong>
-          <small>Settled clean</small>
+          <small>{t('home.settledClean')}</small>
         </div>
         <div className="home-kpi home-kpi-alert">
-          <span>Open exceptions</span>
+          <span>{t('home.openExceptions')}</span>
           <strong>{openCount ?? '—'}</strong>
-          <small>{reconciliationRun && metrics?.amount_at_risk != null ? `${formatPaise(metrics.amount_at_risk)} at risk` : 'Waiting for a batch'}</small>
+          <small>{reconciliationRun && metrics?.amount_at_risk != null ? t('home.atRisk', { amount: formatPaise(metrics.amount_at_risk) }) : t('home.waitingBatch')}</small>
         </div>
       </div>
 
       {cash && (
         <button className="bank-balance-strip bank-strip-payout home-cash-strip" data-tour="dashboard-cash" onClick={() => setDashPage('cash')} type="button">
-          <div><span>Available cash</span><strong>{formatRupees(cash.available_rupees)}</strong></div>
-          <div><span>In transit (T+2)</span><strong>{formatRupees(cash.in_transit_rupees)}</strong></div>
-          <div><span>Blocked by exceptions</span><strong>{formatRupees(cash.blocked_rupees)}</strong></div>
-          <div><span>Next 7 days</span><strong>{formatRupees(cash.expected_7d_rupees)}</strong></div>
+          <div><span>{t('home.availableCash')}</span><strong>{formatRupees(cash.available_rupees)}</strong></div>
+          <div><span>{t('home.inTransit')}</span><strong>{formatRupees(cash.in_transit_rupees)}</strong></div>
+          <div><span>{t('home.blocked')}</span><strong>{formatRupees(cash.blocked_rupees)}</strong></div>
+          <div><span>{t('home.next7')}</span><strong>{formatRupees(cash.expected_7d_rupees)}</strong></div>
         </button>
       )}
 
@@ -137,8 +145,8 @@ function HomePage() {
         <div className="home-desk">
           <section className="db-card home-queue-card" data-tour="dashboard-queue">
             <div className="db-card-title-row">
-              <h3 className="db-card-title">Work queue</h3>
-              <span className="home-count-chip">{deskPending ? '…' : `${queue.length} items`}</span>
+              <h3 className="db-card-title">{t('home.workQueue')}</h3>
+              <span className="home-count-chip">{deskPending ? '…' : t('home.items', { count: queue.length })}</span>
             </div>
             {deskPending ? (
               <div className="home-skel-stack" aria-hidden="true">
@@ -150,7 +158,7 @@ function HomePage() {
                   <button
                     key={item.id}
                     type="button"
-                    className={`home-queue-row ops-priority-${item.priority}`}
+                    className={`home-queue-row ops-priority-${String(item.priority || 'low').toLowerCase()}`}
                     onClick={() => {
                       setDashPage(item.href || 'exceptions');
                       if (item.focus_id) setSelectedExcId(item.focus_id);
@@ -316,6 +324,7 @@ function HomePage() {
           <h3 className="db-card-title">Audit trail</h3>
           <div className="db-audit-legend">
             <span className="db-legend-dot db-legend-engine" /> Rule engine
+            <span className="db-legend-dot db-legend-razorpay" style={{ marginLeft: 12 }} /> Razorpay test
             <span className="db-legend-dot db-legend-ai" style={{ marginLeft: 12 }} /> Gemini
           </div>
         </div>
@@ -323,13 +332,19 @@ function HomePage() {
           {(visibleAuditLogs || []).length ? visibleAuditLogs.map((log) => {
             const time = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase();
             const isAI = log.source === 'gemini_api';
+            const isRazorpay = log.source === 'razorpay_test_api';
             const details = String(log.details || '');
+            const actor = isAI
+              ? 'Gemini'
+              : isRazorpay
+                ? 'Razorpay test'
+                : (log.source === 'ops_controller' ? 'Controller' : log.source === 'ecommerce_demo' ? 'Store demo' : 'Rule engine');
             return (
               <div key={log.id} className="db-audit-row">
                 <span className="db-audit-time">{time}</span>
-                <span className={`db-audit-dot ${isAI ? 'db-legend-ai' : 'db-legend-engine'}`} />
+                <span className={`db-audit-dot ${isAI ? 'db-legend-ai' : isRazorpay ? 'db-legend-razorpay' : 'db-legend-engine'}`} />
                 <span className="db-audit-text">
-                  {isAI ? 'Gemini' : (log.source === 'ops_controller' ? 'Controller' : 'Rule engine')}: {details.length > 90 ? `${details.slice(0, 90)}…` : details}
+                  {actor}: {details.length > 90 ? `${details.slice(0, 90)}…` : details}
                 </span>
               </div>
             );
@@ -356,13 +371,14 @@ function ReconciliationPage() {
     handleRunReconciliation, handleGenerateFresh, generateCount, setGenerateCount,
     isConnected, batchLoaded, reconciliationRun, metrics, ingestReport,
   } = useApp();
+  const { t } = useLanguage();
 
   return (
     <div className="db-page">
       <div className="db-page-heading">
         <div>
-          <h2 className="db-page-title">Reconciliation</h2>
-          <p className="db-page-sub">Upload a Razorpay export, generate a fresh seed, or re-run the rule engine.</p>
+          <h2 className="db-page-title">{t('pages.reconTitle')}</h2>
+          <p className="db-page-sub">{t('pages.reconSub')}</p>
         </div>
       </div>
       <div className="db-recon-layout">
@@ -515,6 +531,7 @@ function ExceptionsPage() {
     handleInvestigate, handleExplainDifference, investigation, difference,
     exceptionFilter, setExceptionFilter, exceptionSearch, triggerToast,
   } = useApp();
+  const { t } = useLanguage();
   const [analystNote, setAnalystNote] = React.useState('');
   const [remember, setRemember] = React.useState(false);
   const [workflow, setWorkflow] = React.useState('all');
@@ -605,8 +622,8 @@ function ExceptionsPage() {
     <div className="db-page">
       <div className="db-page-heading">
         <div>
-          <h2 className="db-page-title">Exception queue</h2>
-          <p className="db-page-sub">Apply arithmetic fixes, escalate missing bank credits, or waive after a human check.</p>
+          <h2 className="db-page-title">{t('pages.exceptionsTitle')}</h2>
+          <p className="db-page-sub">{t('pages.exceptionsSub')}</p>
         </div>
         <span className="db-heading-count">{exceptionSearch?.totals?.count ?? filteredExceptions.length} shown</span>
       </div>
@@ -1089,10 +1106,13 @@ function AuditPage() {
     auditFilter, setAuditFilter, auditSource, setAuditSource, auditActionType, setAuditActionType,
     setDashPage, setSelectedExcId,
   } = useApp();
+  const { t } = useLanguage();
   const [openId, setOpenId] = React.useState(null);
 
   const actorLabel = (log) => {
     if (log.source === 'gemini_api') return 'Gemini';
+    if (log.source === 'razorpay_test_api') return 'Razorpay test';
+    if (log.source === 'ecommerce_demo') return 'Store demo';
     if (log.source === 'ops_controller' || log.actor === 'finance_ops') return 'Controller';
     return log.actor || 'Rule engine';
   };
@@ -1102,7 +1122,7 @@ function AuditPage() {
       <div className="db-page-heading">
         <div>
           <p className="bank-kicker">Immutable trail</p>
-          <h2 className="db-page-title">Audit logs</h2>
+          <h2 className="db-page-title">{t('pages.auditTitle')}</h2>
           <p className="db-page-sub">Every engine match, human decision and Gemini answer is stored here. Rows are never rewritten — new actions append.</p>
         </div>
       </div>
@@ -1116,6 +1136,7 @@ function AuditPage() {
             <option value="human">Human / controller</option>
             <option value="ai">Gemini</option>
             <option value="rule_engine">Rule engine</option>
+            <option value="razorpay_test_api">Razorpay test</option>
           </select>
           <select className="db-filter-select" value={auditActionType} onChange={(event) => setAuditActionType(event.target.value)}>
             <option value="all">All actions</option>
@@ -1130,19 +1151,21 @@ function AuditPage() {
         </div>
         <div className="db-audit-legend-row">
           <span className="db-legend-dot db-legend-engine" /> Rule engine / human
+          <span className="db-legend-dot db-legend-razorpay" style={{ marginLeft: 16 }} /> Razorpay test
           <span className="db-legend-dot db-legend-ai" style={{ marginLeft: 16 }} /> Gemini
         </div>
       </div>
       <div className="audit-feed" data-tour="audit-table">
         {visibleAuditLogs.length ? visibleAuditLogs.map((log) => {
           const isAI = log.source === 'gemini_api';
+          const isRazorpay = log.source === 'razorpay_test_api';
           const record = String(log.record_ids || '').split(',')[0].trim();
           const open = openId === log.id;
           return (
-            <article key={log.id} className={`audit-card ${open ? 'is-open' : ''} ${isAI ? 'is-ai' : ''}`}>
+            <article key={log.id} className={`audit-card ${open ? 'is-open' : ''} ${isAI ? 'is-ai' : ''} ${isRazorpay ? 'is-razorpay' : ''}`}>
               <button type="button" className="audit-card-main" onClick={() => setOpenId(open ? null : log.id)}>
                 <time>{formatTimestamp(log.timestamp)}</time>
-                <span className={`audit-actor ${isAI ? 'ai' : 'engine'}`}>{actorLabel(log)}</span>
+                <span className={`audit-actor ${isAI ? 'ai' : isRazorpay ? 'razorpay' : 'engine'}`}>{actorLabel(log)}</span>
                 <div className="audit-copy">
                   <strong>{titleCaseType(log.action_type)}</strong>
                   <p>{(log.details || '').length > 140 ? `${log.details.slice(0, 140)}…` : (log.details || 'No detail stored.')}</p>
@@ -1251,7 +1274,7 @@ function GroupedEarningsChart({ rows }) {
           <div className="earn-group-bars">
             {[
               { key: 'gross', color: '#0d4fff', value: row.gross },
-              { key: 'tax', color: '#7c3aed', value: row.tax },
+              { key: 'tax', color: '#0C2651', value: row.tax },
               { key: 'net', color: '#059669', value: row.net },
             ].map((bar) => (
               <div
@@ -1288,13 +1311,14 @@ function CompositionBars({ items }) {
 
 function ReportsPage() {
   const { batchLoaded, reconciliationRun, analytics, metrics, handleLoadBatch, handleRunReconciliation, isConnected, downloadWordReport } = useApp();
+  const { t } = useLanguage();
   const [period, setPeriod] = React.useState('overall');
 
   return (
     <div className="db-page">
       <div className="db-page-heading">
         <div>
-          <h2 className="db-page-title">Reports & insights</h2>
+          <h2 className="db-page-title">{t('pages.reportsTitle')}</h2>
           <p className="db-page-sub">Earning analysis from the active batch — overall, monthly and yearly. Live figures, not a placeholder.</p>
         </div>
         {reconciliationRun && (
@@ -1357,7 +1381,7 @@ function ReportsPage() {
                 <CompositionBars items={[
                   { label: 'GMV', value: analytics.total_earnings, color: '#0d4fff' },
                   { label: 'Net settlement', value: analytics.net_settlement, color: '#059669' },
-                  { label: 'GST collected', value: analytics.total_tax, color: '#7c3aed' },
+                  { label: 'GST collected', value: analytics.total_tax, color: '#0C2651' },
                   { label: 'Fees', value: analytics.total_fees, color: '#f59e0b' },
                   { label: 'Refunds', value: analytics.total_refunds, color: '#ef4444' },
                 ]} />
@@ -1367,7 +1391,7 @@ function ReportsPage() {
                 <GroupedEarningsChart rows={analytics.monthly} />
                 <div className="earn-legend">
                   <span><i style={{ background: '#0d4fff' }} /> GMV</span>
-                  <span><i style={{ background: '#7c3aed' }} /> GST</span>
+                  <span><i style={{ background: '#0C2651' }} /> GST</span>
                   <span><i style={{ background: '#059669' }} /> Net</span>
                 </div>
               </div>
@@ -1447,40 +1471,42 @@ export default function Dashboard() {
     metrics, setSelectedExcId,
   } = useApp();
   const { openChooser } = useTour();
+  const { t } = useLanguage();
 
   const openExceptions = metrics?.unresolved_exceptions ?? metrics?.exceptions ?? 0;
-  const matchLabel = reconciliationRun ? matchPercent(metrics) : 'No batch';
+  const matchLabel = reconciliationRun ? matchPercent(metrics) : t('chrome.noBatch');
   const matchWidth = reconciliationRun ? Math.round((metrics?.match_rate || 0) * 100) : 0;
   const navGroups = [
     {
-      label: 'Control',
+      label: t('nav.control'),
       items: [
-        { id: 'home', label: 'Dashboard' },
-        { id: 'guide', label: 'Manual guide' },
+        { id: 'home', label: t('nav.home') },
+        { id: 'chat', label: t('nav.chat') },
+        { id: 'guide', label: t('nav.guide') },
       ],
     },
     {
-      label: 'Operations',
+      label: t('nav.operations'),
       items: [
-        { id: 'payments', label: 'Payments' },
-        { id: 'reconciliation', label: 'Reconciliation' },
-        { id: 'exceptions', label: 'Exceptions', count: openExceptions },
+        { id: 'payments', label: t('nav.payments') },
+        { id: 'reconciliation', label: t('nav.reconciliation') },
+        { id: 'exceptions', label: t('nav.exceptions'), count: openExceptions },
       ],
     },
     {
-      label: 'Finance',
+      label: t('nav.finance'),
       items: [
-        { id: 'cash', label: 'Cash' },
-        { id: 'gst', label: 'GST' },
-        { id: 'withdraw', label: 'Withdraw' },
+        { id: 'cash', label: t('nav.cash') },
+        { id: 'gst', label: t('nav.gst') },
+        { id: 'withdraw', label: t('nav.withdraw') },
       ],
     },
     {
-      label: 'Records',
+      label: t('nav.records'),
       items: [
-        { id: 'audit', label: 'Audit logs' },
-        { id: 'knowledge', label: 'Rules' },
-        { id: 'reports', label: 'Reports' },
+        { id: 'audit', label: t('nav.audit') },
+        { id: 'knowledge', label: t('nav.knowledge') },
+        { id: 'reports', label: t('nav.reports') },
       ],
     },
   ];
@@ -1495,11 +1521,11 @@ export default function Dashboard() {
           <button className="logo" onClick={() => setActiveTab('overview')} type="button" style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer' }}>
             <span className="logo-accent">Razor-AI</span>
           </button>
-          <span className="db-sidebar-subtitle">AI Finance Controller</span>
+          <span className="db-sidebar-subtitle">{t('chrome.subtitle')}</span>
         </div>
         <div className="db-sidebar-progress">
-          <span>Batch progress</span>
-          <strong>{matchLabel}{reconciliationRun && openExceptions ? ` · ${openExceptions} open` : ''}</strong>
+          <span>{t('chrome.batchProgress')}</span>
+          <strong>{matchLabel}{reconciliationRun && openExceptions ? ` · ${t('chrome.open', { count: openExceptions })}` : ''}</strong>
           <div className="db-sidebar-progress-track" aria-hidden="true">
             <div className="db-sidebar-progress-fill" style={{ width: `${matchWidth}%` }} />
           </div>
@@ -1530,16 +1556,17 @@ export default function Dashboard() {
       <div className="db-main">
         <header className="db-topbar">
           <div className="db-topbar-left">
-            <button className="db-sidebar-toggle" onClick={() => setSidebarOpen((open) => !open)} type="button">Menu</button>
+            <button className="db-sidebar-toggle" onClick={() => setSidebarOpen((open) => !open)} type="button">{t('chrome.menu')}</button>
             <span className="db-topbar-divider" />
-            <span className="db-topbar-label">AI Finance Controller</span>
-            <span className={`db-conn-pill ${isConnected ? 'online' : 'offline'}`}>{isConnected ? 'Engine live' : 'Offline'}</span>
+            <span className="db-topbar-label">{t('chrome.subtitle')}</span>
+            <span className={`db-conn-pill ${isConnected ? 'online' : 'offline'}`}>{isConnected ? t('chrome.engineLive') : t('chrome.offline')}</span>
           </div>
           <div className="db-topbar-right">
             <div className="db-topbar-actions">
-              <button className="db-quick-link" onClick={openChooser} type="button">Tour</button>
+              <LanguageToggle compact />
+              <button className="db-quick-link" onClick={openChooser} type="button">{t('chrome.tour')}</button>
               <button className="db-topbar-cta" onClick={handleCloseBooks} disabled={!isConnected || closingBooks} type="button">
-                {closingBooks ? 'Closing…' : (reconciliationRun ? 'Close books' : 'Load & close')}
+                {closingBooks ? t('chrome.closing') : (reconciliationRun ? t('chrome.closeBooks') : t('chrome.loadClose'))}
               </button>
               <NotificationMenu />
             </div>
@@ -1547,6 +1574,7 @@ export default function Dashboard() {
         </header>
         <div className="db-content">
           {dashPage === 'home' && <HomePage />}
+          {dashPage === 'chat' && <ChatPage />}
           {dashPage === 'payments' && <PaymentsPage />}
           {dashPage === 'reconciliation' && <ReconciliationPage />}
           {dashPage === 'exceptions' && <ExceptionsPage />}

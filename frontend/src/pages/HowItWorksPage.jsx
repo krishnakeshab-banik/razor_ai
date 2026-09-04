@@ -38,7 +38,7 @@ export default function HowItWorksPage() {
             </div>
           </div>
           <div className="pipeline-card">
-            <div className="pipeline-icon-box icon-box-purple">3</div>
+            <div className="pipeline-icon-box icon-box-blue">3</div>
             <h3>Close, then ask</h3>
             <p>Auto-fix fee/GST/refund/timing. Escalate missing UTRs. Then ask Gemini only against the retrieved rows — never against the whole ledger.</p>
             <div className="insight-box">

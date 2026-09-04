@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useApp } from '../AppContext';
 import { formatTimestamp, titleCaseType } from '../lib/format';
+import { useLanguage } from '../i18n/LanguageContext';
 
 const MISMATCH_OPTIONS = [
   { value: 'fee_miscalculation', label: 'Fee miscalculation' },
@@ -13,6 +14,7 @@ const MISMATCH_OPTIONS = [
 
 export default function KnowledgePage() {
   const { triggerToast, reconciliationRun } = useApp();
+  const { t } = useLanguage();
   const [rules, setRules] = useState([]);
   const [form, setForm] = useState({
     title: '',
@@ -51,7 +53,7 @@ export default function KnowledgePage() {
       <div className="db-page-heading" data-tour="rules-purpose">
         <div>
           <p className="bank-kicker">Investigation knowledge</p>
-          <h2 className="db-page-title">Rules</h2>
+          <h2 className="db-page-title">{t('pages.rulesTitle')}</h2>
           <p className="db-page-sub">Write standing guidance the controller can quote when investigating an exception. Rules never post a settlement, never invent a UTR, and never auto-resolve money.</p>
         </div>
       </div>

@@ -45,6 +45,10 @@ def run():
     print(f"    {payment}")
     check("clean payment status is 'matched'", payment["reconciliation_status"] == "matched")
     check("clean payment has no mismatch_type", payment["mismatch_type"] is None)
+    from datetime import datetime
+    created = payment.get("created_at")
+    parsed = datetime.fromisoformat(str(created)[:19])
+    check("clean payment uses local capture time", abs((datetime.now() - parsed).total_seconds()) < 180)
 
     print("\n=== Test: missing_settlement ===")
     result = simulate(1500, "missing_settlement")

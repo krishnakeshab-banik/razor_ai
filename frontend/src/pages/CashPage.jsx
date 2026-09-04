@@ -2,9 +2,11 @@ import React from 'react';
 import { useApp } from '../AppContext';
 import { formatRupees } from '../lib/format';
 import { api } from '../lib/api';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export default function CashPage() {
   const { cash, closeReport, reconciliationRun, handleWhatIf, whatIfResult } = useApp();
+  const { t } = useLanguage();
   const [why, setWhy] = React.useState(null);
   const [whyLoading, setWhyLoading] = React.useState(false);
 
@@ -35,8 +37,8 @@ export default function CashPage() {
   return (
     <div className="db-page">
       <div>
-        <h2 className="db-page-title">Cash position</h2>
-        <p className="db-page-sub">How much is in the bank, what is still in T+2 transit, and what is blocked by exceptions.</p>
+        <h2 className="db-page-title">{t('pages.cashTitle')}</h2>
+        <p className="db-page-sub">{t('pages.cashSub')}</p>
       </div>
       <div data-tour="cash-position">
       <div className="db-cash-hero">

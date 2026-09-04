@@ -1,5 +1,5 @@
 const DASH_PAGES = new Set([
-  'home', 'payments', 'reconciliation', 'exceptions', 'cash', 'gst',
+  'home', 'chat', 'payments', 'reconciliation', 'exceptions', 'cash', 'gst',
   'withdraw', 'audit', 'knowledge', 'guide', 'reports',
 ]);
 

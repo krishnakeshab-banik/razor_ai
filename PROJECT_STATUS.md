@@ -1,6 +1,6 @@
 # Razor-AI — Project status
 
-**Date:** 2 September 2026  
+**Date:** 5 September 2026  
 **Stage:** End-to-end AI Finance Controller demo on synthetic Razorpay-shaped batches  
 **Audience:** Buildathon judges, teammates, and anyone picking up the repo
 
@@ -29,14 +29,14 @@ Loop: **Reconcile → Investigate → Explain → Resolve → Audit → Predict*
 1. Open the marketing site (`Overview`) and understand the close loop.
 2. Read **How it works** (ingest → match → resolve → forecast) and **Roadmap** (Phase 1 live vs later integrations).
 3. Click **Get started** (opens the controller) or **Try a live checkout** (Northwind Goods store).
-4. **Manual guide → Start Guided Tour**. The tour navigates the **real** controller (Dashboard → Payments → Exceptions → Cash → GST → Withdraw → Audit → Rules → Reports → Marketplace → Reconciliation). It highlights live UI; it does not click Withdraw, Apply fix, Close books, Generate Demo Dataset, or Refund.
+4. **Manual guide → Start Guided Tour** (or topbar **Tour**). The tour navigates the **real** controller (Dashboard → Payments → Exceptions → Cash → GST → Withdraw → Audit → Rules → Reports → Marketplace → Reconciliation). It highlights live UI; it does not click Withdraw, Apply fix, Close books, Generate Demo Dataset, or Refund. Each step has a **mic on/off** control that reads that step in the current language (EN or Hindi). Voice defaults to off.
 5. Or buy a product in the **Northwind Goods** demo store (UPI / card / netbanking), pick a simulated settlement outcome, then refund from **Past orders**. Checkout and refunds land in the same reconciliation batch and create controller notifications.
 6. Generate (50 / 100 / 250 / 500 / 1000) or upload a CSV/XLSX/TXT batch and run the engine.
 7. See match rate, amount at risk, today's briefing, the action queue, cash (available / in transit / blocked / projected), GST lines, and payments with date filters.
 8. Open an exception → **Explain this difference** (read-only waterfall) → **Investigate**. Apply arithmetic fixes, acknowledge, waive, escalate missing UTRs, or reopen. Missing settlements are never auto-fixed.
 9. Preview a **synthetic withdrawal** (fees / tax / refunds / net received) without the tour submitting it.
 10. **Close the books** — auto-fix fee, GST, refund, duplicate, and timing; leftover rows stay on the honest list.
-11. Ask settlement **or product/how-to** questions in chat. Matching never calls an LLM. Chat is the only Gemini path. Secrets, API keys, `.env`, answer keys, emails, phones, and invented `pay_…` IDs are refused or stripped.
+11. Ask settlement **or product/how-to** questions in chat (home compact panel or sidebar **Settlement Q&A**). Matching never calls an LLM. Chat is the only Gemini path. Secrets, API keys, `.env`, answer keys, emails, phones, and invented `pay_…` IDs are refused or stripped. Switch **EN | हिं** to run the dashboard chrome and get answers in Hindi (IDs and amounts stay Latin).
 
 Typical live close on a seeded demo batch: **~100 records, ~80% match before close, ~97% after auto-resolve**, with remaining rows all `missing_settlement`. Exact counts move if you regenerate the seed.
 
@@ -56,6 +56,7 @@ Typical live close on a seeded demo batch: **~100 records, ~80% match before clo
 | The product tour never mutates financial records | Education layer over the live app |
 | Store GST is 18% **on goods**; recon GST is 18% **on fee** | Two different taxes, labelled |
 | Chat never receives API keys, `.env`, answer_key, emails, phones, or card fields | Leak prevention |
+| Language preference is local (`razorai-lang`); tour voice is session-only and off by default | Opt-in speech; no extra vendor TTS |
 
 ---
 
@@ -89,9 +90,10 @@ Razor_AI/
     src/App.jsx            Marketing / store / controller shell
     src/AppContext.jsx     All live state + API
     src/pages/             Every screen listed in §8
-    src/components/        Chat, tour, search, notifications, drawer
+    src/components/        Chat, tour, search, notifications, drawer, language toggle
     src/tour/              Guided-tour steps + TourProvider
-    src/lib/api.js         HTTP client
+    src/i18n/              EN/HI strings, tour Hindi copy, Web Speech helper
+    src/lib/api.js         HTTP client (`language` on `/chat`)
     src/lib/format.js      INR, CSV export, chat starter
     public/products/       Store images (jpg + svg)
   data/
@@ -127,6 +129,7 @@ Controller `dashPage` (sidebar):
 | Group | `dashPage` | Sidebar label |
 | --- | --- | --- |
 | Control | `home` | Dashboard |
+| Control | `chat` | Settlement Q&A |
 | Control | `guide` | Manual guide |
 | Operations | `payments` | Payments |
 | Operations | `reconciliation` | Reconciliation |
@@ -243,6 +246,7 @@ Model: `gemini-2.5-flash` via `google-genai`. Key from `GEMINI_API_KEY` only —
 - Product/how-to questions work with **no batch loaded**
 - Finance questions still require a reconciled batch
 - Extra context always includes public fee/GST/T+2 config plus redacted cash / GST / batch totals when a run exists
+- `/chat` accepts optional `language` (`en` / `hi`). Hindi system rule: Devanagari reply; keep `payment_id`, UTR, batch IDs, GSTIN, and amounts in Latin script. Offline leak / empty-batch / quota fallbacks use the same language.
 - `/chat/confirm` for actions that need a human confirm
 - Missing API key and Gemini 429 fall back to a grounded summary; recon still works
 - Audit stores a truncated Q/A, not secrets
@@ -400,7 +404,7 @@ Interactive docs: `http://localhost:8000/docs`.
 
 ## 8. Frontend — every page, what it does, and which functions it uses
 
-React 18 + Vite. Marketing, checkout, and controller are separate screens so copy and money state do not mix. `AppContext` owns API, cart, batch, chat, resolve, close, withdrawals, refunds, and an **8-second live poll** while the controller is open.
+React 18 + Vite. Marketing, checkout, and controller are separate screens so copy and money state do not mix. `AppContext` owns API, cart, batch, chat, resolve, close, withdrawals, refunds, and a live poll while the controller is open. `LanguageProvider` wraps the shell; `getLocale()` is attached to every `/chat` call.
 
 Error boundary in `main.jsx` catches render crashes and clears a stuck tour from `sessionStorage`. Context modules persist identity across Vite Fast Refresh.
 
@@ -413,7 +417,8 @@ Error boundary in `main.jsx` catches render crashes and clears a stuck tour from
 | Roadmap | Header **Roadmap** | `RoadmapPage.jsx` | Phase 1 live vs later integrations |
 | Store | **Try a live checkout** / top-bar **Store** | `MerchantPage.jsx` | Demo checkout + refunds into the live batch |
 | Controller shell | **Get started** / **Open the controller** | `Dashboard.jsx` | Sidebar, top bar, Close books, Account |
-| Dashboard | Sidebar **Dashboard** | `HomePage` in `Dashboard.jsx` | KPIs, cash strip, work queue, exceptions + chat |
+| Dashboard | Sidebar **Dashboard** | `HomePage` in `Dashboard.jsx` | KPIs, cash strip, work queue, exceptions + compact chat |
+| Settlement Q&A | Sidebar **Settlement Q&A** | `ChatPage.jsx` | Full-page chat + tool visuals |
 | Manual guide | Sidebar **Manual guide** | `GuidePage.jsx` | Start tour or jump to any live page |
 | Payments | Sidebar **Payments** | `PaymentsPage.jsx` | Every captured payment, newest first |
 | Reconciliation | Sidebar **Reconciliation** | `ReconciliationPage` in `Dashboard.jsx` | Upload / generate / run the engine |
@@ -481,7 +486,7 @@ Marketplace is **not** in the sidebar.
 | Pay (UPI / Card / Netbanking + outcome) | `handleMerchantCheckout` | `POST /demo/simulate-payment` then recon |
 | Past orders list | `loadOrders` | `GET /demo/orders` |
 | Refund | `refund` → `handleRefundOrder` preview then confirm | `POST /demo/refund` |
-| Header Home / Marketplace / Past orders / Controller / Tour | `setActiveTab`, `setMerchantView`, `openChooser` | — |
+| Header Home / Marketplace / Past orders / Controller / Tour / EN–हिं | `setActiveTab`, `setMerchantView`, `openChooser`, `LanguageToggle` | — |
 
 Checkout GST is **18% on goods**. Recon GST is **18% on fee**. Simulated outcomes: clean, missing settlement, unaccounted refund, fee miscalculation, GST mismatch, timing, duplicate.
 
@@ -499,6 +504,7 @@ Checkout GST is **18% on goods**. Recon GST is **18% on fee**. Simulated outcome
 | Finance search | `FinanceSearch.run` | `/search` → Exceptions |
 | Home | `setActiveTab('overview')` | marketing |
 | Store | `setMerchantView('store'); setActiveTab('merchant-checkout')` | store |
+| EN / हिं | `LanguageToggle` → `setLocale` | `localStorage` `razorai-lang`; `document.documentElement.lang` |
 | Tour | `openChooser` | tour chooser |
 | Close books / Load & close | `handleCloseBooks` | load if needed, then `POST /books/close` |
 | Bell | `NotificationMenu` | `GET /notifications`; click uses `handleOpenNotification` |
@@ -690,17 +696,18 @@ Form fields: title, guidance, mismatch type (fee / GST / refund / timing / unkno
 
 | Component | Functions | Role |
 | --- | --- | --- |
-| `ChatPanel.jsx` | `handleSendChat`, `handleSuggestedClick`, `handleConfirmChatAction`, `handleGroundedTagClick` | Settlement Q&A. Input enabled when the engine is live (product Q without a batch). `POST /chat`, `POST /chat/confirm` |
+| `ChatPanel.jsx` | `handleSendChat`, `handleSuggestedClick`, `handleConfirmChatAction`, `handleGroundedTagClick` | Compact home panel + full `ChatPage`. Sends `language: getLocale()`. Chips and intro follow EN/HI. `POST /chat`, `POST /chat/confirm` |
+| `LanguageToggle.jsx` + `i18n/` | `useLanguage`, `t()`, `getLocale()` | EN/HI chrome. Stored as `razorai-lang` |
 | `ExceptionDrawer.jsx` | `handleOpenDrawer`, resolve / investigate | Deep-dive from grounded `pay_…` chips |
 | `DateRangeFilter.jsx` | `onChange` presets + custom date/time | Payments, Exceptions, Audit, Withdraw history |
 | `FinanceSearch.jsx` | `run`, `openPayment` | Top-bar search → Exceptions |
 | `NotificationMenu.jsx` | `handleOpenNotification`, `handleMarkAllNotificationsRead` | Unread badge; click-through to Payments / Exceptions / GST / Withdraw |
-| `ProductTour.jsx` + `TourContext.jsx` | `startTour`, `openChooser` | 28 live-DOM steps; never auto-clicks mutating buttons |
+| `ProductTour.jsx` + `TourContext.jsx` | `startTour`, `openChooser`, `localizeTourStep`, `speakText` | Live-DOM steps; Hindi copy from `tourHi.js`; per-step mic (Web Speech, `hi-IN` / `en-IN`); never auto-clicks mutating buttons |
 | `Toasts.jsx` | `triggerToast` | Action feedback |
 
-**Chat.** Home cards 480px with inner scroll. Starter: matching is rule-based; ask how to use a page **or** about this batch; will not share keys or contact fields. Suggestions: How do I use Exceptions?, How does Store checkout work?, Why are there exceptions?, 7-day cash, GST lines, unresolved amount, delayed ₹2L. Disclaimer: only this panel calls Gemini.
+**Chat.** Home compact card 480px with inner scroll; expand opens `dashPage === 'chat'` (same thread). Starter: matching is rule-based; ask how to use a page **or** about this batch; will not share keys or contact fields. Suggestion chips follow the selected language. Disclaimer (compact only): only this panel calls Gemini. Full page shows tool tables/charts from `tool_payload`.
 
-**Tour.** Spotlight + tethered popover on real `data-tour` hooks. Resume via `sessionStorage` key `razorai-product-tour`. Hands-on waits for a real click. **Never** auto-clicks Generate Demo Dataset, Run reconciliation, Apply suggested fix, Close books, Confirm withdrawal, or Refund.
+**Tour.** Spotlight + tethered popover on real `data-tour` hooks. Resume via `sessionStorage` key `razorai-product-tour`. Hands-on waits for a real click. **Never** auto-clicks Generate Demo Dataset, Run reconciliation, Apply suggested fix, Close books, Confirm withdrawal, or Refund. Each step can toggle **voice on/off** (`sessionStorage` `razorai-tour-voice`, default off). If left on, the browser reads title + body + meaning + action in EN or Hindi. Speech stops on skip, finish, or unmount.
 
 ---
 
@@ -725,7 +732,7 @@ python tests/test_controller_intel.py
 | --- | --- |
 | `test_reconciliation.py` | Match / classify vs answer key; measured throughput; four priority bands; prints FP / miss IDs |
 | `test_explainations.py` | Template text for each mismatch |
-| `test_chatbot.py` | Retrieval, leak refuse, product Q with empty books, PII strip, invented `pay_…` IDs (offline) |
+| `test_chatbot.py` | Retrieval, leak refuse (EN + Hindi), product Q with empty books, PII strip, invented `pay_…` IDs (offline) |
 | `test_chatbot_live.py` | Optional live Gemini |
 | `test_ingest.py` | Column aliases, rupee vs paise, malformed rows kept, empty / unsupported files |
 | `test_api.py` | HTTP contract (`/chat` skipped — needs a key) |
@@ -791,6 +798,8 @@ Payments rail All / Matched / Exceptions and the Word `.docx` close report are *
 - SQLite audit is a demo log, not a WORM ledger
 - Withdrawals are synthetic ledger entries, not bank payouts
 - Chat grounding rejects invented payment IDs; it does not parse every rupee figure in free text
+- Hindi is chrome + chat + tour, not a full translation of every table, briefing, or intel string
+- Tour narration depends on the browser/OS having an English or Hindi voice
 - 100% detection on the synthetic answer key is **fixture correctness**, not a production accuracy claim
 - Chargebacks, FX, and live payout batches are out of scope
 
@@ -810,9 +819,11 @@ Since the first React controller + store + close-the-books loop:
 - Resolution **memory**, human-taught **rules**, cluster **batch-resolve** (preview vs confirm)
 - Chat **confirm** for consequential suggestions
 - Chat **product/how-to** answers without a loaded batch; **leak/PII stripping** before Gemini
+- **EN / हिं** language toggle (chrome, store header, chat chips, page titles). Preference in `localStorage`. `/chat` receives `language` so Gemini and fallbacks reply in Hindi (IDs stay Latin)
+- Full-page **Settlement Q&A** (`dashPage === 'chat'`) sharing the home conversation; tool visuals from books JSON
 - Home **Open exceptions** + **Settlement Q&A** capped at 480px with internal scroll
 - Ops-style payments and exceptions tables
-- **Interactive product tour** on the live UI (spotlight, route wait, skip missing, hands-on, no auto-mutation)
+- **Interactive product tour** on the live UI (spotlight, route wait, skip missing, hands-on, no auto-mutation). Per-step **mic** narrates the step in the preferred language (Web Speech API, off by default)
 - 8-second live refresh of dashboard, payments, cash, GST, notifications
 - Error boundary + HMR-safe React context so a tour crash cannot white-screen the app
 - Page-by-page inventory in this document (purpose, controls, handlers, APIs)
@@ -829,4 +840,4 @@ Since the first React controller + store + close-the-books loop:
 
 ## 14. One-line summary
 
-Razor-AI is a **verified close loop** on a synthetic Razorpay batch: deterministic match, measured detection, auto-fix of arithmetic, cash / GST / withdrawals, a live demo checkout with refunds, a guided tour of the real product, and Gemini only for questions about the website and the loaded books — with missing settlements left on an honest list instead of a generated UTR.
+Razor-AI is a **verified close loop** on a synthetic Razorpay batch: deterministic match, measured detection, auto-fix of arithmetic, cash / GST / withdrawals, a live demo checkout with refunds, a guided tour of the real product (optional spoken steps in EN/Hindi), and Gemini only for questions about the website and the loaded books — in English or Hindi — with missing settlements left on an honest list instead of a generated UTR.

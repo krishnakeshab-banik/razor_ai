@@ -4,10 +4,12 @@ import { formatPaise, titleCaseType } from '../lib/format';
 export default function ExceptionDrawer() {
   const { drawerOpen, drawerData, closeDrawer, handleResolveException, resolvingId } = useApp();
 
+  if (!drawerOpen) return null;
+
   return (
     <>
-      <div className={`drawer-overlay ${drawerOpen ? 'open' : ''}`} onClick={closeDrawer} />
-      <div className={`drawer ${drawerOpen ? 'open' : ''}`}>
+      <div className="drawer-overlay open" onClick={closeDrawer} />
+      <div className="drawer open">
         <div className="drawer-header">
           <h3>Exception deep-dive</h3>
           <button className="drawer-close" onClick={closeDrawer} type="button">✕</button>

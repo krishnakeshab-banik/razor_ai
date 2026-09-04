@@ -41,6 +41,7 @@ export const api = {
       start: context.start || undefined,
       end: context.end || undefined,
       batch_id: context.batch_id || undefined,
+      language: context.language || undefined,
     }),
   }),
   audit: (limit = 100) => request(`/audit-trail?limit=${limit}`),
@@ -54,6 +55,16 @@ export const api = {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ amount_rupees: amountRupees, outcome, ...extra }),
+  }),
+  createRazorpayOrder: (payload) => request('/demo/razorpay/create-order', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }),
+  verifyRazorpayPayment: (payload) => request('/demo/razorpay/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   }),
   storeOrders: () => request('/demo/orders'),
   refundOrder: (paymentId, amountRupees, confirm = false) => request('/demo/refund', {

@@ -2,9 +2,11 @@ import React from 'react';
 import { ExceptionBadge } from '../components/ChatPanel';
 import { useApp } from '../AppContext';
 import { formatRupees } from '../lib/format';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export default function GstPage() {
   const { taxLines, reconciliationRun, setSelectedExcId, setDashPage, selectedExcId } = useApp();
+  const { t } = useLanguage();
   if (!reconciliationRun) {
     return (
       <div className="db-page">
@@ -25,7 +27,7 @@ export default function GstPage() {
       <div className="bank-page-head">
         <div>
           <p className="bank-kicker">Tax ledger</p>
-          <h2 className="db-page-title">GST account</h2>
+          <h2 className="db-page-title">{t('pages.gstTitle')}</h2>
           <p className="db-page-sub">{taxLines?.rate || 'GST is calculated on the processing fee, not on GMV.'} GSTIN 29AABCU9603R1ZX · current batch.</p>
         </div>
         <div className="bank-account-chip">

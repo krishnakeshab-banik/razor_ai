@@ -212,9 +212,22 @@ def run_tools(question: str, reconciled: pd.DataFrame, resolutions: dict | None 
         payload["tax"] = {
             "expected_gst_rupees": tax.get("expected_gst_rupees"),
             "actual_gst_rupees": tax.get("actual_gst_rupees"),
+            "delta_rupees": tax.get("delta_rupees"),
             "mismatched_lines": tax.get("mismatched_lines"),
+            "matched_lines": tax.get("matched_lines"),
             "sample_mismatch_ids": mismatched_ids,
             "rate": tax.get("rate"),
+            "lines": [
+                {
+                    "payment_id": line.get("payment_id"),
+                    "fee_rupees": line.get("fee_rupees"),
+                    "expected_gst_rupees": line.get("expected_gst_rupees"),
+                    "actual_gst_rupees": line.get("actual_gst_rupees"),
+                    "delta_rupees": line.get("delta_rupees"),
+                    "status": line.get("status"),
+                }
+                for line in (tax.get("lines") or [])[:25]
+            ],
         }
         used.append("get_tax_lines")
 
@@ -251,3 +264,51 @@ def run_tools(question: str, reconciled: pd.DataFrame, resolutions: dict | None 
 
     payload["tools_used"] = used
     return payload
+
+
+VISUAL_TOOLS = (
+    "get_tax_lines",
+    "compare_periods",
+    "get_recurring_discrepancies",
+    "get_high_priority_exceptions",
+    "get_forecast",
+    "get_cash_position",
+    "search_financial_records",
+)
+
+
+def _json_safe_tree(value):
+    if isinstance(value, dict):
+        return {str(key): _json_safe_tree(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe_tree(item) for item in value]
+    return json_safe(value)
+
+
+def _payload_for_visual_tool(name: str, payload: dict):
+    if name == "get_tax_lines":
+        return payload.get("tax")
+    if name == "compare_periods":
+        return payload.get("what_changed")
+    if name == "get_recurring_discrepancies":
+        return payload.get("recurring")
+    if name == "get_high_priority_exceptions":
+        return payload.get("high_priority_exceptions")
+    if name in {"get_forecast", "get_cash_position"}:
+        return payload.get("cash")
+    if name == "search_financial_records":
+        return payload.get("search")
+    return None
+
+
+def visual_tool_result(payload: dict | None) -> tuple[str | None, object | None]:
+    """Pick the primary visual tool and return its raw JSON for the UI."""
+    payload = payload or {}
+    used = payload.get("tools_used") or []
+    picked = next((name for name in VISUAL_TOOLS if name in used), None)
+    if not picked:
+        return None, None
+    data = _payload_for_visual_tool(picked, payload)
+    if data is None:
+        return None, None
+    return picked, _json_safe_tree(data)

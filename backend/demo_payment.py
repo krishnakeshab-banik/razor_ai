@@ -15,7 +15,7 @@ fee_miscalculation, timing_mismatch, duplicate_record.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from config import FEE_PCT, TAX_PCT
 
@@ -27,6 +27,70 @@ VALID_OUTCOMES = {
 
 def make_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:10]}"
+
+
+def apply_outcome_fields(
+    *,
+    amount: int,
+    payment_id: str,
+    order_id: str,
+    created_at,
+    payment_method: str = "upi",
+    status: str = "captured",
+    outcome: str = "clean",
+    gstin: str = "29AABCU9603R1ZX",
+    source: str = "demo_store",
+) -> list[dict]:
+    """
+    Overlay fee / tax / settlement mutations for a planted outcome.
+
+    Real Razorpay Test Mode payments often have fee=0 and no settlement yet.
+    Using the same expected 2% / 18% / T+2 ledger as synthetic rows means
+    "clean" still matches, and the judge outcome picker still plants the
+    intended break on a real payment_id.
+    """
+    if outcome not in VALID_OUTCOMES:
+        raise ValueError(f"Unknown outcome '{outcome}'. Must be one of {sorted(VALID_OUTCOMES)}")
+
+    fee = round(amount * FEE_PCT)
+    tax = round(fee * TAX_PCT)
+    refund_amount = 0
+    row_status = status
+    settlement_id = make_id("setl")
+    settled_at = created_at + timedelta(days=2)
+    settlement_amount = amount - fee - tax - refund_amount
+
+    if outcome == "missing_settlement":
+        settlement_id, settlement_amount = None, None
+
+    elif outcome == "unaccounted_refund":
+        refund_amount = round(amount * 0.25)
+        row_status = "partially_refunded"
+        settlement_amount = amount - fee - tax
+
+    elif outcome == "fee_miscalculation":
+        fee = round(fee * 0.5)
+        settlement_amount = amount - fee - tax
+
+    elif outcome == "timing_mismatch":
+        settled_at = created_at + timedelta(days=10)
+
+    elif outcome == "tax_line_mismatch":
+        tax = round(fee * 0.42)
+        settlement_amount = amount - fee - tax - refund_amount
+
+    row = {
+        "payment_id": payment_id, "order_id": order_id, "amount": amount,
+        "fee": fee, "tax": tax, "refund_amount": refund_amount,
+        "settlement_id": settlement_id, "settlement_amount": settlement_amount,
+        "status": row_status, "created_at": created_at, "settled_at": settled_at,
+        "payment_method": payment_method, "gstin": gstin, "source": source,
+    }
+
+    if outcome == "duplicate_record":
+        return [dict(row), dict(row)]
+
+    return [row]
 
 
 def build_demo_transaction(amount_rupees: float, outcome: str = "clean") -> list[dict]:
@@ -42,52 +106,54 @@ def build_demo_transaction(amount_rupees: float, outcome: str = "clean") -> list
     if outcome not in VALID_OUTCOMES:
         raise ValueError(f"Unknown outcome '{outcome}'. Must be one of {sorted(VALID_OUTCOMES)}")
 
-    amount = round(amount_rupees * 100)  # rupees -> paise, matching the rest of the schema
-    fee = round(amount * FEE_PCT)
-    tax = round(fee * TAX_PCT)
-    refund_amount = 0
-    status = "captured"
+    amount = round(amount_rupees * 100)
+    now = datetime.now()
+    return apply_outcome_fields(
+        amount=amount,
+        payment_id=make_id("pay"),
+        order_id=make_id("order"),
+        created_at=now,
+        outcome=outcome,
+    )
 
-    payment_id = make_id("pay")
-    order_id = make_id("order")
-    settlement_id = make_id("setl")
 
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    created_at = now
-    settled_at = now + timedelta(days=2)
-    settlement_amount = amount - fee - tax - refund_amount
+def map_razorpay_payment(payment: dict, outcome: str = "clean") -> list[dict]:
+    """
+    Map a Razorpay Payments API payload onto the live-batch transaction schema.
+    Keeps the real payment_id, order_id, amount, created_at, and method.
+    """
+    if outcome not in VALID_OUTCOMES:
+        raise ValueError(f"Unknown outcome '{outcome}'. Must be one of {sorted(VALID_OUTCOMES)}")
 
-    if outcome == "missing_settlement":
-        settlement_id, settlement_amount = None, None
+    payment_id = str(payment.get("id") or "").strip()
+    if not payment_id:
+        raise ValueError("Razorpay payment is missing id")
 
-    elif outcome == "unaccounted_refund":
-        refund_amount = round(amount * 0.25)
-        status = "partially_refunded"
-        settlement_amount = amount - fee - tax  # refund wrongly excluded
+    amount = int(payment.get("amount") or 0)
+    if amount <= 0:
+        raise ValueError("Razorpay payment amount must be positive")
 
-    elif outcome == "fee_miscalculation":
-        fee = round(fee * 0.5)
-        settlement_amount = amount - fee - tax
+    order_id = str(payment.get("order_id") or "").strip() or make_id("order")
+    created_raw = payment.get("created_at")
+    if isinstance(created_raw, (int, float)):
+        created_at = datetime.fromtimestamp(int(created_raw))
+    else:
+        created_at = datetime.now()
 
-    elif outcome == "timing_mismatch":
-        settled_at = now + timedelta(days=10)
+    method = str(payment.get("method") or "upi").lower()
+    status = str(payment.get("status") or "captured")
+    if status == "authorized":
+        status = "captured"
 
-    elif outcome == "tax_line_mismatch":
-        tax = round(fee * 0.42)
-        settlement_amount = amount - fee - tax - refund_amount
-
-    row = {
-        "payment_id": payment_id, "order_id": order_id, "amount": amount,
-        "fee": fee, "tax": tax, "refund_amount": refund_amount,
-        "settlement_id": settlement_id, "settlement_amount": settlement_amount,
-        "status": status, "created_at": created_at, "settled_at": settled_at,
-        "payment_method": "upi", "gstin": "29AABCU9603R1ZX", "source": "demo_store",
-    }
-
-    if outcome == "duplicate_record":
-        return [dict(row), dict(row)]
-
-    return [row]
+    return apply_outcome_fields(
+        amount=amount,
+        payment_id=payment_id,
+        order_id=order_id,
+        created_at=created_at,
+        payment_method=method,
+        status=status,
+        outcome=outcome,
+    )
 
 
 def apply_refund(transactions, payment_id: str, amount_rupees: float | None = None):

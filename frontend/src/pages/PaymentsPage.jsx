@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import DateRangeFilter from '../components/DateRangeFilter';
 import { useApp } from '../AppContext';
 import { formatPaise, formatRupees, formatTimestamp } from '../lib/format';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export default function PaymentsPage() {
   const {
@@ -10,6 +11,7 @@ export default function PaymentsPage() {
     paymentStatus, setPaymentStatus,
     setSelectedExcId, setDashPage, selectedExcId,
   } = useApp();
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (reconciliationRun) fetchPayments();
@@ -31,8 +33,8 @@ export default function PaymentsPage() {
     <div className="db-page">
       <div className="db-page-heading" data-tour="payments-heading">
         <div>
-          <h2 className="db-page-title">Payments</h2>
-          <p className="db-page-sub">Every captured payment in the loaded batch. Date filters run on the backend against created_at.</p>
+          <h2 className="db-page-title">{t('pages.paymentsTitle')}</h2>
+          <p className="db-page-sub">{t('pages.paymentsSub')}</p>
         </div>
       </div>
       <DateRangeFilter value={paymentFilter} onChange={(next) => { setPaymentPage(1); setPaymentFilter(next); }} dataTour="payments-filter" />

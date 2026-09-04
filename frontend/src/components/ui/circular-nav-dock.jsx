@@ -1,15 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { BarChart3, FileSpreadsheet, Home, Menu, Store, User, X } from 'lucide-react';
-import CircularNavigation, { layoutFan, placePanel } from './circular-navigation-bar';
+import React, { useCallback, useEffect, useState } from 'react';
+import { BarChart3, FileSpreadsheet, Home, LayoutDashboard, Menu, Store, User, X } from 'lucide-react';
 import { useApp } from '../../AppContext';
 import { api } from '../../lib/api';
 import { downloadBlob, formatDayLabel, formatPaise, formatRupees, titleCaseType } from '../../lib/format';
-
-const FAB = 60;
-const EDGE = 20;
-const SNAP = 28;
-const DRAG_THRESHOLD = 8;
-const STORAGE_KEY = 'razorai.circNav.pos';
+import LanguageToggle from '../LanguageToggle';
 
 function todayStamp() {
   const now = new Date();
@@ -18,64 +12,9 @@ function todayStamp() {
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
-function viewportSize() {
-  return { width: window.innerWidth, height: window.innerHeight };
-}
-
-function defaultPos() {
-  const { width, height } = viewportSize();
-  return { x: width - FAB - EDGE, y: height - FAB - EDGE };
-}
-
-function clampPos(x, y, view = viewportSize()) {
-  return {
-    x: Math.min(Math.max(EDGE, x), Math.max(EDGE, view.width - FAB - EDGE)),
-    y: Math.min(Math.max(EDGE, y), Math.max(EDGE, view.height - FAB - EDGE)),
-  };
-}
-
-function snapPos(x, y, view = viewportSize()) {
-  const maxX = view.width - FAB - EDGE;
-  const maxY = view.height - FAB - EDGE;
-  let nextX = x;
-  let nextY = y;
-  if (x < EDGE + SNAP) nextX = EDGE;
-  else if (x > maxX - SNAP) nextX = maxX;
-  if (y < EDGE + SNAP) nextY = EDGE;
-  else if (y > maxY - SNAP) nextY = maxY;
-  return clampPos(nextX, nextY, view);
-}
-
-function readSavedPos() {
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultPos();
-    const parsed = JSON.parse(raw);
-    if (!Number.isFinite(parsed?.x) || !Number.isFinite(parsed?.y)) return defaultPos();
-    return clampPos(parsed.x, parsed.y);
-  } catch {
-    return defaultPos();
-  }
-}
-
-function savePos(pos) {
-  try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(pos));
-  } catch {
-    /* session-only; ignore quota */
-  }
-}
-
-function radialRadius(view) {
-  const shortest = Math.min(view.width, view.height);
-  if (shortest < 480) return 72;
-  if (shortest < 768) return 80;
-  return 88;
-}
-
 export default function CircularNavDock() {
   const {
-    setActiveTab, setMerchantView, setDashPage, setSelectedExcId, setProfileMenuOpen,
+    setActiveTab, setMerchantView, setDashPage, goToAdmin, setSelectedExcId, setProfileMenuOpen,
     handleSuggestedClick, downloadCsvReport, downloadWordReport, downloadAnalysisReport, handleResetDemo,
     reconciliationRun, isConnected, triggerToast, metrics, dashPage, activeTab,
     paymentFilter, setInquiryDate,
@@ -87,21 +26,6 @@ export default function CircularNavDock() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
   const [sheetBusy, setSheetBusy] = useState(false);
-  const [pos, setPos] = useState(defaultPos);
-  const [viewport, setViewport] = useState(viewportSize);
-  const dragRef = useRef({
-    active: false,
-    moved: false,
-    pointerId: null,
-    startX: 0,
-    startY: 0,
-    origX: 0,
-    origY: 0,
-  });
-
-  useEffect(() => {
-    setPos(readSavedPos());
-  }, []);
 
   useEffect(() => {
     if (paymentFilter?.preset === 'custom' && paymentFilter.start) {
@@ -109,24 +33,6 @@ export default function CircularNavDock() {
       setInquiryDate(paymentFilter.start);
     }
   }, [paymentFilter, setInquiryDate]);
-
-  useEffect(() => {
-    const onResize = () => {
-      const view = viewportSize();
-      setViewport(view);
-      setPos((current) => {
-        const next = clampPos(current.x, current.y, view);
-        savePos(next);
-        return next;
-      });
-    };
-    window.addEventListener('resize', onResize);
-    window.visualViewport?.addEventListener('resize', onResize);
-    return () => {
-      window.removeEventListener('resize', onResize);
-      window.visualViewport?.removeEventListener('resize', onResize);
-    };
-  }, []);
 
   useEffect(() => {
     if (!isOpen && !panel) return undefined;
@@ -139,51 +45,6 @@ export default function CircularNavDock() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [isOpen, panel]);
-
-  const onPointerDown = (event) => {
-    if (event.button != null && event.button !== 0) return;
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    dragRef.current = {
-      active: true,
-      moved: false,
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      origX: pos.x,
-      origY: pos.y,
-    };
-  };
-
-  const onPointerMove = (event) => {
-    const drag = dragRef.current;
-    if (!drag.active || drag.pointerId !== event.pointerId) return;
-    const dx = event.clientX - drag.startX;
-    const dy = event.clientY - drag.startY;
-    if (!drag.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
-    drag.moved = true;
-    setPos(clampPos(drag.origX + dx, drag.origY + dy));
-  };
-
-  const onPointerUp = (event) => {
-    const drag = dragRef.current;
-    if (!drag.active || drag.pointerId !== event.pointerId) return;
-    drag.active = false;
-    try {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    } catch {
-      /* already released */
-    }
-    if (drag.moved) {
-      setPos((current) => {
-        const snapped = snapPos(current.x, current.y);
-        savePos(snapped);
-        return snapped;
-      });
-      return;
-    }
-    setIsOpen((open) => !open);
-  };
 
   const loadSummary = async (stamp = date, pay = paymentId) => {
     if (!reconciliationRun) {
@@ -228,15 +89,28 @@ export default function CircularNavDock() {
     }
   };
 
+  const onMarketplace = activeTab === 'merchant-checkout';
   const onHome = activeTab === 'dashboard' && dashPage === 'home' && !panel;
-  const onStore = activeTab === 'merchant-checkout' && !panel;
+  const placeItem = onMarketplace
+    ? {
+      name: 'Admin',
+      icon: LayoutDashboard,
+      active: false,
+      onSelect: () => { setPanel(null); goToAdmin('home'); },
+    }
+    : {
+      name: 'Store',
+      icon: Store,
+      active: false,
+      onSelect: () => { setPanel(null); setMerchantView('store'); setActiveTab('merchant-checkout'); },
+    };
   const navItems = [
-    {
+    ...(!onMarketplace ? [{
       name: 'Home',
       icon: Home,
       active: onHome,
       onSelect: () => { setPanel(null); setActiveTab('dashboard'); setDashPage('home'); },
-    },
+    }] : []),
     {
       name: 'Account',
       icon: User,
@@ -253,12 +127,7 @@ export default function CircularNavDock() {
         loadSummary(stamp, '');
       },
     },
-    {
-      name: 'Store',
-      icon: Store,
-      active: onStore,
-      onSelect: () => { setPanel(null); setMerchantView('store'); setActiveTab('merchant-checkout'); },
-    },
+    placeItem,
     {
       name: 'Sheets',
       icon: FileSpreadsheet,
@@ -281,9 +150,6 @@ export default function CircularNavDock() {
     item.onSelect?.();
   }, []);
 
-  const radius = radialRadius(viewport);
-  const spots = layoutFan(navItems.length, radius, FAB, pos, viewport);
-  const panelBox = placePanel(pos, viewport, FAB);
   const headline = summary?.headline || (
     summary
       ? `Summary for ${formatDayLabel(summary.date || summary.latest_date || date)} · Batch ${summary.batch_id || metrics?.batch?.batch_id || '—'}`
@@ -292,54 +158,49 @@ export default function CircularNavDock() {
 
   return (
     <>
-      {isOpen ? (
+      <div className="app-launcher">
+        {isOpen ? (
+          <button
+            className="app-launcher-scrim"
+            type="button"
+            aria-label="Close menu"
+            onClick={() => setIsOpen(false)}
+          />
+        ) : null}
+        {isOpen ? (
+          <div className="app-launcher-menu" role="menu">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.name}
+                  type="button"
+                  role="menuitem"
+                  className={`app-launcher-item${item.active ? ' is-active' : ''}`}
+                  onClick={() => handleSelect(item)}
+                >
+                  {Icon ? <Icon className="app-launcher-glyph" /> : null}
+                  {item.name}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
         <button
-          className="circ-nav-scrim"
           type="button"
-          aria-label="Close menu"
-          onClick={() => setIsOpen(false)}
-        />
-      ) : null}
-
-      <div
-        className={`circ-nav-root ${isOpen ? 'is-open' : ''}${dragRef.current.moved ? ' is-dragging' : ''}`}
-        style={{ left: pos.x, top: pos.y }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-      >
-        <CircularNavigation
-          navItems={navItems}
-          isOpen={isOpen}
-          fabSize={FAB}
-          spots={spots}
-          onSelect={handleSelect}
-        />
-        <button
-          type="button"
-          className="circ-nav-fab"
+          className={`app-launcher-btn${isOpen ? ' is-open' : ''}`}
           aria-expanded={isOpen}
-          aria-label={isOpen ? 'Close menu' : 'Open menu. Drag to move.'}
+          aria-label={isOpen ? 'Close shortcuts' : 'Open shortcuts'}
+          onClick={() => setIsOpen((open) => !open)}
         >
-          {isOpen ? <X className="circ-nav-fab-icon" /> : <Menu className="circ-nav-fab-icon" />}
+          {isOpen ? <X className="app-launcher-glyph" /> : <Menu className="app-launcher-glyph" />}
         </button>
       </div>
 
       {panel && (
-        <div className="circ-panel-overlay" role="presentation">
+        <div className="app-drawer-overlay" role="presentation">
           <button className="circ-nav-backdrop" type="button" aria-label="Close panel" onClick={() => setPanel(null)} />
-          <div
-            className="circ-panel"
-            role="dialog"
-            aria-modal="true"
-            style={{
-              left: panelBox.left,
-              top: panelBox.top,
-              width: panelBox.width,
-              maxHeight: panelBox.maxHeight,
-            }}
-          >
+          <div className="app-drawer" role="dialog" aria-modal="true">
             {panel === 'summary' && (
               <>
                 <header className="circ-panel-head">
@@ -478,6 +339,7 @@ export default function CircularNavDock() {
                   <div>
                     <h3>Account</h3>
                     <p>Finance ops · controller@razorpay.demo</p>
+                    <LanguageToggle compact />
                   </div>
                   <button type="button" className="db-text-link" onClick={() => setPanel(null)}>Close</button>
                 </header>

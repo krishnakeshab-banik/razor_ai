@@ -1,23 +1,65 @@
 import { useApp } from '../AppContext';
-import { formatRupees } from '../lib/format';
+import { formatRupees, formatTimestamp } from '../lib/format';
 import { api } from '../lib/api';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { ShoppingCart, Trash2 } from 'lucide-react';
 import { useTour } from '../tour/TourContext';
+import { useLanguage } from '../i18n/LanguageContext';
+import LanguageToggle from '../components/LanguageToggle';
 
-const METHODS = ['UPI', 'Card', 'Netbanking'];
+// Cosmetic store dressing only — not a live review system or product API.
+const PRODUCT_RATINGS = {
+  earbuds: { rating: 4.8, reviews: 214 },
+  lamp: { rating: 4.6, reviews: 89 },
+  notebook: { rating: 4.4, reviews: 156 },
+  keyboard: { rating: 4.9, reviews: 312 },
+  monitor: { rating: 4.5, reviews: 67 },
+  hub: { rating: 4.3, reviews: 128 },
+};
+
+function ProductStars({ rating, reviews }) {
+  const filled = Math.round(rating);
+  return (
+    <div className="merchant-product-rating" aria-label={`${rating} out of 5 from ${reviews} reviews`}>
+      <span className="merchant-stars" aria-hidden="true">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <span key={star} className={star <= filled ? 'is-on' : ''}>★</span>
+        ))}
+      </span>
+      <span className="merchant-rating-score">{rating.toFixed(1)}</span>
+      <span className="merchant-rating-count">({reviews})</span>
+    </div>
+  );
+}
 
 export default function MerchantPage() {
   const {
-    merchantView, setMerchantView, setActiveTab, setDashPage,
+    merchantView, setMerchantView, setActiveTab, goToAdmin,
     demoProducts, cart, addToCart, updateCartQty, removeCartItem,
     merchantSubtotal, merchantDiscount, merchantTax, merchantTotal,
-    checkoutForm, setCheckoutForm, handleMerchantCheckout, lastPayment, handleRefundOrder,
+    checkoutForm, setCheckoutForm, handleMerchantCheckout, checkoutBusy, lastPayment, handleRefundOrder,
   } = useApp();
   const { openChooser } = useTour();
+  const { t } = useLanguage();
 
-  const method = checkoutForm.paymentMethod;
   const [orders, setOrders] = useState([]);
   const [refundingId, setRefundingId] = useState(null);
+  const [storeSort, setStoreSort] = useState('featured');
+  // Nav search is visual only — it does not filter the catalogue.
+  const [storeSearch, setStoreSearch] = useState('');
+
+  const catalog = useMemo(() => {
+    const list = [...demoProducts];
+    if (storeSort === 'price-asc') list.sort((a, b) => a.price - b.price);
+    if (storeSort === 'price-desc') list.sort((a, b) => b.price - a.price);
+    return list;
+  }, [demoProducts, storeSort]);
+  const cartQty = cart.reduce((sum, item) => sum + item.qty, 0);
+  const openCart = (event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    setMerchantView('cart');
+  };
 
   const loadOrders = async () => {
     try {
@@ -48,52 +90,122 @@ export default function MerchantPage() {
   };
 
   return (
-    <div className="merchant-shell" data-tour="marketplace-store">
+    <div className={`merchant-shell${merchantView === 'store' && cartQty > 0 ? ' has-cart-bar' : ''}`} data-tour="marketplace-store">
       <header className="merchant-header" data-tour="store-intro">
-        <div className="merchant-brand">Northwind Goods · demo store</div>
+        <div className="merchant-brand">{t('store.brand')}</div>
         <nav className="merchant-nav">
-          <button className="merchant-nav-link" onClick={() => setActiveTab('overview')} type="button">Home</button>
-          <button className={`merchant-nav-link ${merchantView === 'store' ? 'active' : ''}`} onClick={() => setMerchantView('store')} type="button">Marketplace</button>
-          <button className={`merchant-nav-link ${merchantView === 'orders' ? 'active' : ''}`} onClick={() => setMerchantView('orders')} type="button">Past orders</button>
-          <button className="merchant-nav-link" data-tour="store-to-controller" onClick={() => setActiveTab('dashboard')} type="button">Controller</button>
-          <button className="merchant-nav-link" onClick={openChooser} type="button">Tour</button>
+          <button className={`merchant-nav-link ${merchantView === 'store' ? 'active' : ''}`} onClick={() => setMerchantView('store')} type="button">{t('store.marketplace')}</button>
+          <button className={`merchant-nav-link ${merchantView === 'orders' ? 'active' : ''}`} onClick={() => setMerchantView('orders')} type="button">{t('store.orders')}</button>
+          <button className="merchant-nav-link" data-tour="store-to-controller" onClick={() => goToAdmin('home')} type="button">{t('store.admin')}</button>
+          <button className="merchant-nav-link" onClick={openChooser} type="button">{t('store.tour')}</button>
         </nav>
+        <label className="merchant-search">
+          <span className="merchant-search-label">{t('store.search')}</span>
+          <input
+            type="search"
+            value={storeSearch}
+            onChange={(event) => setStoreSearch(event.target.value)}
+            placeholder={t('store.searchPh')}
+            aria-label={t('store.searchPh')}
+          />
+        </label>
         <div className="merchant-header-actions">
-          <button className="merchant-link-btn subtle" onClick={() => setActiveTab('overview')} type="button">Back to home</button>
-          <button className="merchant-cart-button" data-tour="store-cart-btn" onClick={() => setMerchantView('cart')} aria-label="Open cart" type="button">
-            🛒{cart.length ? <span className="merchant-cart-count">{cart.reduce((sum, item) => sum + item.qty, 0)}</span> : null}
+          <LanguageToggle compact />
+          <button className="merchant-link-btn subtle" onClick={() => setActiveTab('overview')} type="button">{t('store.backHome')}</button>
+          <button className="merchant-cart-button" data-tour="store-cart-btn" onClick={openCart} aria-label={t('store.cart')} type="button">
+            <ShoppingCart className="merchant-cart-icon" strokeWidth={2} />
+            <span className="merchant-cart-label">{t('store.cart')}</span>
+            {cartQty > 0 ? <span className="merchant-cart-count">{cartQty}</span> : null}
           </button>
         </div>
       </header>
 
       {merchantView === 'store' && (
         <>
-          <section className="merchant-page-top">
-            <h2>Shop the catalogue</h2>
-            <p>Simulated Razorpay checkout — each payment lands in the finance controller with a chosen exception outcome.</p>
+          <section className="merchant-hero">
+            <div className="merchant-hero-inner">
+              <h1>{t('store.heroTitle')}</h1>
+              <p>{t('store.heroSub')}</p>
+            </div>
           </section>
+          <div className="merchant-toolbar">
+            <span className="merchant-toolbar-count">{t('store.products', { count: catalog.length })}</span>
+            <label className="merchant-sort">
+              {t('store.sort')}
+              <select value={storeSort} onChange={(event) => setStoreSort(event.target.value)}>
+                <option value="featured">Catalogue order</option>
+                <option value="price-asc">Price: Low to High</option>
+                <option value="price-desc">Price: High to Low</option>
+              </select>
+            </label>
+          </div>
           <section className="merchant-product-grid" data-tour="store-catalogue">
-            {demoProducts.map((product) => (
-              <article className="merchant-product-card" key={product.id}>
-                <div className="merchant-product-image">
-                  <img src={product.image} alt={product.name} />
-                </div>
-                <div className="merchant-product-body">
-                  <h3>{product.name}</h3>
-                  <p>{product.subtitle}</p>
-                  <div className="merchant-product-footer">
-                    <strong>{formatRupees(product.price)}</strong>
-                    <div className="merchant-product-qty-wrap">
-                      <button className="merchant-product-qty-btn" onClick={() => updateCartQty(product.id, -1)} disabled={!cart.some((item) => item.id === product.id)} type="button">−</button>
-                      <span className="merchant-product-qty-value">{cart.find((item) => item.id === product.id)?.qty || 0}</span>
-                      <button className="merchant-product-qty-btn" onClick={() => addToCart(product)} type="button">+</button>
-                    </div>
-                    <button className="merchant-add-btn" data-tour="store-add" onClick={() => addToCart(product)} type="button">Add to cart</button>
+            {catalog.map((product) => {
+              const rating = PRODUCT_RATINGS[product.id] || { rating: 4.5, reviews: 40 };
+              const qty = cart.find((item) => item.id === product.id)?.qty || 0;
+              return (
+                <article className="merchant-product-card" key={product.id}>
+                  <div className="merchant-product-image">
+                    <img src={product.image} alt={product.name} />
                   </div>
-                </div>
-              </article>
-            ))}
+                  <div className="merchant-product-body">
+                    <h3>{product.name}</h3>
+                    <ProductStars rating={rating.rating} reviews={rating.reviews} />
+                    <p>{product.subtitle}</p>
+                    <div className="merchant-product-footer">
+                      <strong>{formatRupees(product.price)}</strong>
+                      {qty > 0 ? (
+                        <div className="merchant-card-stepper" data-tour="store-add" role="group" aria-label={`Quantity for ${product.name}`}>
+                          <button
+                            type="button"
+                            aria-label={`Remove one ${product.name}`}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              updateCartQty(product.id, -1);
+                            }}
+                          >
+                            −
+                          </button>
+                          <span aria-live="polite">{qty}</span>
+                          <button
+                            type="button"
+                            aria-label={`Add one ${product.name}`}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              updateCartQty(product.id, 1);
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className="merchant-add-btn"
+                          data-tour="store-add"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            addToCart(product);
+                          }}
+                          type="button"
+                        >
+                          Add
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </section>
+          {cartQty > 0 && (
+            <div className="merchant-cart-bar">
+              <span>{cartQty} {cartQty === 1 ? 'item' : 'items'} · {formatRupees(merchantTotal)}</span>
+              <button type="button" onClick={openCart}>View cart</button>
+            </div>
+          )}
           <footer className="merchant-footer">
             <div className="merchant-footer-brand">© 2026 Northwind Goods · powered by Razor-AI demo checkout</div>
             <div className="merchant-footer-links">
@@ -115,7 +227,7 @@ export default function MerchantPage() {
               <article className="merchant-order-card" key={order.payment_id}>
                 <div>
                   <strong>{order.payment_id}</strong>
-                  <small>{order.order_id || '—'} · {order.created_at ? new Date(order.created_at).toLocaleString('en-IN') : ''}</small>
+                  <small>{order.order_id || '—'} · {formatTimestamp(order.created_at)}</small>
                   <p>{(order.items || []).map((item) => item.name || item.id).filter(Boolean).join(', ') || 'Demo checkout'}</p>
                 </div>
                 <div className="merchant-order-money">
@@ -142,10 +254,9 @@ export default function MerchantPage() {
       {merchantView === 'cart' && (
         <div className="merchant-cart-shell" data-tour="store-cart">
           <div className="merchant-cart-header-row">
-            <div className="merchant-brand-small">Northwind Goods</div>
+            <h1 className="merchant-cart-title">Your cart</h1>
             <button className="merchant-link-btn" onClick={() => setMerchantView('store')} type="button">← Continue shopping</button>
           </div>
-          <h1 className="merchant-cart-title">Your cart</h1>
           <div className="merchant-cart-layout">
             <div className="merchant-cart-list">
               {cart.length ? cart.map((item) => (
@@ -154,13 +265,47 @@ export default function MerchantPage() {
                   <div className="merchant-item-meta">
                     <div className="merchant-item-name">{item.name}</div>
                     <div className="merchant-item-sub">{item.subtitle}</div>
-                    <div className="merchant-item-price">{formatRupees(item.price)}</div>
+                    <div className="merchant-item-price">{formatRupees(item.price)} each</div>
                   </div>
-                  <div className="merchant-qty-wrap">
-                    <button onClick={() => updateCartQty(item.id, -1)} type="button">-</button>
-                    <span>{item.qty}</span>
-                    <button onClick={() => updateCartQty(item.id, 1)} type="button">+</button>
-                    <button className="merchant-delete-btn" onClick={() => removeCartItem(item.id)} type="button">🗑</button>
+                  <div className="merchant-cart-controls">
+                    <div className="merchant-qty-stepper" role="group" aria-label={`Quantity for ${item.name}`}>
+                      <button
+                        type="button"
+                        aria-label={`Decrease ${item.name} quantity`}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          updateCartQty(item.id, -1);
+                        }}
+                      >
+                        −
+                      </button>
+                      <span aria-live="polite">{item.qty}</span>
+                      <button
+                        type="button"
+                        aria-label={`Increase ${item.name} quantity`}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          updateCartQty(item.id, 1);
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+                    <strong className="merchant-cart-line-total">{formatRupees(item.price * item.qty)}</strong>
+                    <button
+                      className="merchant-delete-btn"
+                      type="button"
+                      aria-label={`Remove ${item.name} from cart`}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        removeCartItem(item.id);
+                      }}
+                    >
+                      <Trash2 className="merchant-delete-icon" strokeWidth={2} />
+                    </button>
                   </div>
                 </div>
               )) : (
@@ -174,8 +319,15 @@ export default function MerchantPage() {
               <div className="merchant-summary-row"><span>GST (18% on goods)</span><strong>{formatRupees(merchantTax)}</strong></div>
               <div className="merchant-summary-row"><span>Delivery</span><strong>Free</strong></div>
               <div className="merchant-summary-total"><span>Total</span><strong>{formatRupees(merchantTotal)}</strong></div>
-              <button className="merchant-checkout-btn" onClick={() => setMerchantView('checkout')} type="button">Proceed to checkout →</button>
-              <div className="merchant-secure-badge">Razorpay-style checkout · demo only</div>
+              <button
+                className="merchant-checkout-btn"
+                onClick={() => setMerchantView('checkout')}
+                type="button"
+                disabled={!cart.length}
+              >
+                Proceed to checkout →
+              </button>
+              <div className="merchant-secure-badge">Razorpay Test Mode · then recon in the controller</div>
             </aside>
           </div>
         </div>
@@ -187,73 +339,16 @@ export default function MerchantPage() {
             <div className="merchant-checkout-header">
               <div className="merchant-checkout-title-wrap">
                 <div>
-                  <strong>Razorpay Checkout</strong>
-                  <small>{cart.reduce((sum, item) => sum + item.qty, 0)} items · demo</small>
+                  <strong>Pay with Razorpay</strong>
+                  <small>{cart.reduce((sum, item) => sum + item.qty, 0)} items · Test Mode checkout</small>
                 </div>
               </div>
               <div className="merchant-checkout-total">{formatRupees(merchantTotal)}</div>
             </div>
-            <div className="merchant-payment-methods">
-              {METHODS.map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  className={`merchant-payment-method ${method === item ? 'active' : ''}`}
-                  onClick={() => setCheckoutForm({ ...checkoutForm, paymentMethod: item })}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
             <div className="merchant-form">
-              <div className="merchant-billing-grid">
-                <label>Full name
-                  <input value={checkoutForm.name} onChange={(event) => setCheckoutForm({ ...checkoutForm, name: event.target.value })} placeholder="Name on the account" />
-                </label>
-                <label>Email
-                  <input type="email" value={checkoutForm.email} onChange={(event) => setCheckoutForm({ ...checkoutForm, email: event.target.value })} placeholder="you@merchant.in" />
-                </label>
-              </div>
-              <div className="merchant-billing-grid">
-                <label>Phone
-                  <input type="tel" value={checkoutForm.phone} onChange={(event) => setCheckoutForm({ ...checkoutForm, phone: event.target.value })} placeholder="+91 98765 43210" />
-                </label>
-                <label>City
-                  <input value={checkoutForm.city} onChange={(event) => setCheckoutForm({ ...checkoutForm, city: event.target.value })} placeholder="Bengaluru" />
-                </label>
-              </div>
-              <label>Billing address
-                <input value={checkoutForm.address} onChange={(event) => setCheckoutForm({ ...checkoutForm, address: event.target.value })} placeholder="House number, street, locality" />
-              </label>
-              {method === 'UPI' && (
-                <label>UPI ID
-                  <input value={checkoutForm.cardNumber} onChange={(event) => setCheckoutForm({ ...checkoutForm, cardNumber: event.target.value })} placeholder="merchant@okaxis" />
-                </label>
-              )}
-              {method === 'Card' && (
-                <>
-                  <label>Card number
-                    <input value={checkoutForm.cardNumber} onChange={(event) => setCheckoutForm({ ...checkoutForm, cardNumber: event.target.value })} placeholder="4111 1111 1111 1111" />
-                  </label>
-                  <div className="merchant-row-two">
-                    <label>Expiry
-                      <input value={checkoutForm.expiry} onChange={(event) => setCheckoutForm({ ...checkoutForm, expiry: event.target.value })} placeholder="MM/YY" />
-                    </label>
-                    <label>CVV
-                      <input value={checkoutForm.cvc} onChange={(event) => setCheckoutForm({ ...checkoutForm, cvc: event.target.value })} placeholder="•••" />
-                    </label>
-                  </div>
-                </>
-              )}
-              {method === 'Netbanking' && (
-                <label>Bank
-                  <input value={checkoutForm.cardNumber} onChange={(event) => setCheckoutForm({ ...checkoutForm, cardNumber: event.target.value })} placeholder="HDFC / ICICI / SBI" />
-                </label>
-              )}
-              <label className="merchant-check-row">
-                <input type="checkbox" checked={checkoutForm.saveCard} onChange={() => setCheckoutForm({ ...checkoutForm, saveCard: !checkoutForm.saveCard })} />
-                Save this method for the demo session
-              </label>
+              <p className="merchant-checkout-lead">
+                Card, UPI, and netbanking are collected inside Razorpay’s checkout. This page only plants the settlement outcome, then opens that modal — or posts a synthetic row for judges.
+              </p>
               <div className="merchant-demo-box">DEMO CONTROLS — not shown to a real customer</div>
               <label className="merchant-select-row" data-tour="store-outcome">
                 Simulate settlement outcome
@@ -268,10 +363,28 @@ export default function MerchantPage() {
                 </select>
               </label>
               <div className="merchant-action-row">
-                <button className="merchant-cancel-btn" onClick={() => setMerchantView('cart')} type="button">Cancel</button>
-                <button className="merchant-pay-btn" data-tour="store-pay" onClick={handleMerchantCheckout} type="button">Pay {formatRupees(merchantTotal)}</button>
+                <button className="merchant-cancel-btn" onClick={() => setMerchantView('cart')} type="button" disabled={checkoutBusy}>Back to cart</button>
+                <button
+                  className="merchant-pay-btn"
+                  data-tour="store-pay"
+                  onClick={() => handleMerchantCheckout()}
+                  type="button"
+                  disabled={checkoutBusy || !cart.length}
+                >
+                  {checkoutBusy ? 'Opening Razorpay…' : `Pay with Razorpay ${formatRupees(merchantTotal)}`}
+                </button>
               </div>
-              <div className="merchant-secure-note">Demo capture · then recon in the controller</div>
+              <button
+                className="merchant-synthetic-btn"
+                onClick={() => handleMerchantCheckout({ synthetic: true })}
+                type="button"
+                disabled={checkoutBusy || !cart.length}
+              >
+                Plant synthetic row instead
+              </button>
+              <div className="merchant-secure-note">
+                Test card 4111 1111 1111 1111 · or Razorpay test UPI success. Signature is verified on the server before the row is ingested.
+              </div>
             </div>
           </div>
         </div>
@@ -289,11 +402,10 @@ export default function MerchantPage() {
               <div><span>Method</span><strong>{lastPayment?.method || checkoutForm.paymentMethod}</strong></div>
               <div><span>Engine outcome</span><strong>{lastPayment?.reconciliation_status || 'queued'}</strong></div>
             </div>
-            <div className="merchant-success-note">Open the controller to see whether this row matched or became an exception.</div>
+            <div className="merchant-success-note">Open Admin to see whether this row matched or became an exception.</div>
             <button className="merchant-success-btn" onClick={() => {
-              setActiveTab('dashboard');
-              setDashPage(lastPayment?.reconciliation_status === 'exception' ? 'exceptions' : 'payments');
-            }} type="button">View in Razor-AI</button>
+              goToAdmin(lastPayment?.reconciliation_status === 'exception' ? 'exceptions' : 'payments');
+            }} type="button">View in Admin</button>
             <button className="merchant-link-btn" onClick={() => setMerchantView('orders')} type="button">Past orders</button>
           </div>
         </div>
