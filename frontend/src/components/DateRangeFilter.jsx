@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 const PRESETS = [
   { id: 'all', label: 'All time' },
@@ -29,11 +29,9 @@ export function dateQuery(filter = EMPTY_DATE_FILTER) {
   return params.toString();
 }
 
-export default function DateRangeFilter({ value = EMPTY_DATE_FILTER, onChange, showTime = true, dataTour }) {
-  const update = (patch) => onChange({ ...value, ...patch });
-
+function DateControls({ value, update, showTime }) {
   return (
-    <div className="db-date-filter" data-tour={dataTour}>
+    <>
       <div className="db-date-presets">
         {PRESETS.map((item) => (
           <button
@@ -70,6 +68,64 @@ export default function DateRangeFilter({ value = EMPTY_DATE_FILTER, onChange, s
           )}
         </div>
       )}
+    </>
+  );
+}
+
+export function MobileFilterPack({ children, label = 'Filters' }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mobile-filter-pack">
+      <button type="button" className="mobile-filter-trigger" onClick={() => setOpen(true)}>
+        <span>{label}</span>
+        <span aria-hidden="true">▾</span>
+      </button>
+      <div className={`mobile-filter-body${open ? ' is-sheet' : ''}`}>
+        {open ? (
+          <button type="button" className="db-date-sheet-scrim" aria-label="Close filters" onClick={() => setOpen(false)} />
+        ) : null}
+        <div className="mobile-filter-panel">
+          <div className="db-date-sheet-head">
+            <h3>{label}</h3>
+            <button type="button" className="exc-sheet-close" onClick={() => setOpen(false)} aria-label="Close filters">✕</button>
+          </div>
+          {children}
+          <button type="button" className="db-topbar-cta mobile-filter-done" onClick={() => setOpen(false)}>Done</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function DateRangeFilter({ value = EMPTY_DATE_FILTER, onChange, showTime = true, dataTour, mobileSheet = true }) {
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const update = (patch) => onChange({ ...value, ...patch });
+  const presetLabel = PRESETS.find((item) => item.id === value.preset)?.label || 'All time';
+
+  return (
+    <div className={`db-date-filter${mobileSheet ? ' db-date-filter-sheetable' : ''}`} data-tour={dataTour}>
+      {mobileSheet && (
+        <>
+          <button type="button" className="db-date-sheet-trigger" onClick={() => setSheetOpen(true)}>
+            <span>{presetLabel}</span>
+            <span aria-hidden="true">▾</span>
+          </button>
+          <div className={`db-date-sheet-layer${sheetOpen ? ' is-open' : ''}`}>
+            <button type="button" className="db-date-sheet-scrim" aria-label="Close date filter" onClick={() => setSheetOpen(false)} />
+            <div className="db-date-sheet" role="dialog" aria-label="Date range">
+              <div className="db-date-sheet-head">
+                <h3>Date range</h3>
+                <button type="button" className="exc-sheet-close" onClick={() => setSheetOpen(false)} aria-label="Close date filter">✕</button>
+              </div>
+              <DateControls value={value} update={update} showTime={showTime} />
+              <button type="button" className="db-topbar-cta" onClick={() => setSheetOpen(false)}>Apply</button>
+            </div>
+          </div>
+        </>
+      )}
+      <div className={mobileSheet ? 'db-date-filter-inline' : ''}>
+        <DateControls value={value} update={update} showTime={showTime} />
+      </div>
     </div>
   );
 }

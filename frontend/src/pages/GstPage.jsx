@@ -85,7 +85,7 @@ export default function GstPage() {
           <h3 className="db-card-title">GST statement</h3>
           <span>Click a mismatched line to open Exceptions</span>
         </div>
-        <table className="db-table bank-ledger">
+        <table className="db-table bank-ledger mobile-cards">
           <thead>
             <tr>
               <th>Payment ID</th>
@@ -107,11 +107,11 @@ export default function GstPage() {
                   }
                 }}
               >
-                <td className="db-exc-id">{line.payment_id}</td>
-                <td>{formatRupees(line.fee_rupees)}</td>
-                <td>{formatRupees(line.expected_gst_rupees)}</td>
-                <td>{formatRupees(line.actual_gst_rupees)}</td>
-                <td>
+                <td data-label="Payment ID" className="db-exc-id">{line.payment_id}</td>
+                <td data-label="Fee">{formatRupees(line.fee_rupees)}</td>
+                <td data-label="Expected GST">{formatRupees(line.expected_gst_rupees)}</td>
+                <td data-label="Actual GST">{formatRupees(line.actual_gst_rupees)}</td>
+                <td data-label="Status">
                   {line.status === 'mismatch'
                     ? <ExceptionBadge type="tax_line_mismatch" />
                     : <span className="db-status-badge db-status-reconciled">matched</span>}

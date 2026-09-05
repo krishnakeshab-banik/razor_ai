@@ -87,9 +87,19 @@ export function friendlyExplanation(text) {
   );
 }
 
+function parseDisplayDate(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(raw);
+  const date = new Date(hasZone ? raw : `${raw.replace(' ', 'T')}+05:30`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 export function formatAge(createdAt) {
   if (!createdAt) return '—';
-  const ms = Date.now() - new Date(createdAt).getTime();
+  const parsed = parseDisplayDate(createdAt);
+  if (!parsed) return '—';
+  const ms = Date.now() - parsed.getTime();
   if (Number.isNaN(ms)) return '—';
   const days = Math.max(0, Math.floor(ms / 86400000));
   if (days < 1) {
@@ -109,14 +119,12 @@ export function flagDestination(item) {
 
 export function formatTimestamp(value) {
   if (!value) return '—';
-  const raw = String(value).trim();
-  const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(raw);
-  const date = new Date(hasZone ? raw : raw.replace(' ', 'T'));
-  if (Number.isNaN(date.getTime())) return raw;
+  const date = parseDisplayDate(value);
+  if (!date) return String(value).trim();
   return date.toLocaleString('en-IN', {
     dateStyle: 'medium',
     timeStyle: 'short',
-    ...(hasZone ? { timeZone: 'Asia/Kolkata' } : {}),
+    timeZone: 'Asia/Kolkata',
   });
 }
 

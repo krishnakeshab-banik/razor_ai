@@ -6288,6 +6288,42 @@ body.app-locked .merchant-shell {
     height: 100%;
     background: var(--blue);
 }
+.tour-popover-drag {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+    cursor: grab;
+    touch-action: none;
+}
+.tour-popover-drag i {
+    display: block;
+    width: 36px;
+    height: 4px;
+    border-radius: 999px;
+    background: #d1d5db;
+}
+.tour-popover-head {
+    padding: 0 20px 0;
+    cursor: grab;
+    touch-action: none;
+}
+.tour-popover-head h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+    padding-right: 24px;
+}
+.tour-popover.is-dragging,
+.tour-popover.is-dragging .tour-popover-drag,
+.tour-popover.is-dragging .tour-popover-head {
+    cursor: grabbing;
+    user-select: none;
+}
+.tour-popover.is-moved .tour-popover-arrow {
+    display: none;
+}
 .tour-popover-close {
     position: absolute;
     top: 12px;

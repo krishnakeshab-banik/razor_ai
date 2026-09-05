@@ -17,10 +17,12 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 
+def _clean_key(value: str | None) -> str:
+    return (value or "").strip().strip('"').strip("'").strip()
+
+
 def credentials() -> tuple[str, str]:
-    key_id = (os.environ.get("RAZORPAY_KEY_ID") or "").strip()
-    key_secret = (os.environ.get("RAZORPAY_KEY_SECRET") or "").strip()
-    return key_id, key_secret
+    return _clean_key(os.environ.get("RAZORPAY_KEY_ID")), _clean_key(os.environ.get("RAZORPAY_KEY_SECRET"))
 
 
 def is_configured() -> bool:

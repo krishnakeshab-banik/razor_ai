@@ -9,6 +9,8 @@ import time
 import uuid
 from datetime import datetime, timezone
 
+from config import now_ist
+
 DB_PATH = "razorai.db"
 _SCHEMA_READY = False
 _BUILDING_SCHEMA = False
@@ -492,7 +494,7 @@ def insert_store_order(payment_id, order_id, amount_paise, status, outcome, item
             items_json, customer_name, customer_email, payment_method)
            VALUES (?,?,?,?,0,?,?,?,?,?,?)""",
         (
-            payment_id, order_id, datetime.now().isoformat(timespec="seconds"), int(amount_paise or 0),
+            payment_id, order_id, now_ist().isoformat(timespec="seconds"), int(amount_paise or 0),
             status, outcome, items_json, customer_name, customer_email, payment_method,
         ),
     )

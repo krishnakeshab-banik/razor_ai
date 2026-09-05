@@ -118,7 +118,10 @@ export default function CashPage() {
         <div className="db-forecast-list">
           {(cash?.forecast || []).map((day) => (
             <div className="db-forecast-row" key={day.date}>
-              <span className="db-forecast-label">{day.label}</span>
+              <span className="db-forecast-label">
+                <span className="db-forecast-label-full">{day.label}</span>
+                <span className="db-forecast-label-short">{String(day.label || '').slice(0, 3)}</span>
+              </span>
               <div className="db-forecast-bar-track">
                 <div className="db-forecast-bar" style={{ width: `${(day.expected_inflow_rupees / maxInflow) * 100}%` }} />
               </div>

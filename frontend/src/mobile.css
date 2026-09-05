@@ -1,0 +1,857 @@
+/* Phone layout only. Desktop styles stay in index.css. */
+
+@media (max-width: 720px) {
+  html, body {
+    overflow-x: hidden;
+    max-width: 100%;
+  }
+
+  .app-root-container,
+  .db-shell,
+  .db-main,
+  .db-page,
+  .merchant-shell {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .db-sidebar-toggle,
+  .db-quick-link,
+  .lang-toggle button,
+  .db-chat-expand,
+  .db-topbar-icon,
+  .db-chat-send,
+  .merchant-cart-button,
+  .merchant-nav-link,
+  .merchant-qty-stepper button,
+  .merchant-delete-btn,
+  .tour-voice,
+  .exc-sheet-close,
+  .drawer-close,
+  .tour-popover-close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .db-topbar-icon,
+  .db-chat-expand,
+  .merchant-cart-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .db-topbar-cta,
+  .db-ghost-btn,
+  .db-upload-btn,
+  .db-filter-btn,
+  .db-page-btn,
+  .merchant-pay-btn,
+  .merchant-checkout-btn,
+  .merchant-success-btn,
+  .tour-primary,
+  .tour-btn-primary {
+    min-height: 44px;
+  }
+
+  .db-page-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .db-page-heading .db-topbar-cta,
+  .db-page-heading .db-ghost-btn {
+    width: 100%;
+  }
+
+  .home-kpi-row,
+  .db-stats-row,
+  .db-reports-summary-row,
+  .db-reports-metrics,
+  .db-report-grid,
+  .db-source-grid,
+  .db-guide-grid,
+  .rules-intro,
+  .home-desk,
+  .home-secondary,
+  .db-cash-hero,
+  .bank-page-head,
+  .bank-split,
+  .bank-stat-row,
+  .db-recon-layout,
+  .preview-stats-grid,
+  .pipeline-grid,
+  .phases-subgrid {
+    grid-template-columns: 1fr !important;
+  }
+
+  @media (min-width: 400px) {
+    .home-kpi-row,
+    .db-stats-row,
+    .db-reports-summary-row {
+      grid-template-columns: 1fr 1fr !important;
+    }
+  }
+
+  .home-cash-strip,
+  .bank-balance-strip.bank-strip-payout,
+  .bank-balance-strip.bank-strip-tax,
+  .db-cash-strip {
+    display: flex !important;
+    grid-template-columns: none !important;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 0;
+  }
+
+  .home-cash-strip > div,
+  .bank-balance-strip.bank-strip-payout > div,
+  .bank-balance-strip.bank-strip-tax > div,
+  .db-cash-strip > div {
+    flex: 0 0 min(78%, 260px);
+    scroll-snap-align: start;
+    border-right: 1px solid #eef2f6 !important;
+    border-bottom: 0 !important;
+  }
+
+  .home-queue-row {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px 12px;
+    text-align: left;
+  }
+
+  .ops-console,
+  .ops-console-payments {
+    grid-template-columns: 1fr !important;
+  }
+
+  .ops-rail {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 10px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ops-rail-group {
+    margin: 0;
+    min-width: max-content;
+  }
+
+  .ops-rail-group button {
+    white-space: nowrap;
+    min-height: 40px;
+  }
+
+  .db-date-sheet-trigger,
+  .mobile-filter-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid #d7e3ee;
+    border-radius: 12px;
+    background: #fff;
+    font-weight: 700;
+    color: #0c2651;
+  }
+
+  .db-date-filter-inline {
+    display: none;
+  }
+
+  .db-date-sheet-layer {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 260;
+  }
+
+  .db-date-sheet-layer.is-open {
+    display: block;
+  }
+
+  .db-date-sheet-scrim {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    background: rgba(15, 23, 42, 0.45);
+  }
+
+  .db-date-sheet,
+  .mobile-filter-body.is-sheet .mobile-filter-panel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #fff;
+    border-radius: 16px 16px 0 0;
+    padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
+    max-height: 80dvh;
+    overflow: auto;
+  }
+
+  .db-date-sheet-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .db-date-sheet-head h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #0c2651;
+  }
+
+  .mobile-filter-body {
+    display: none;
+  }
+
+  .mobile-filter-body.is-sheet {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 260;
+  }
+
+  .mobile-filter-done {
+    width: 100%;
+    margin-top: 14px;
+  }
+
+  .db-date-sheet .db-date-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .db-date-sheet .db-date-custom {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .db-date-sheet .db-date-custom label,
+  .bank-field,
+  form.db-card label {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .db-exc-filters,
+  .db-generate-row,
+  .db-whatif-actions,
+  .db-upload-actions,
+  .db-analytics-stats,
+  .circ-panel-actions-stack {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .db-upload-actions button,
+  .db-whatif-actions button,
+  .circ-panel-actions-stack .db-quick-link {
+    width: 100%;
+  }
+
+  .db-exc-search,
+  .db-filter-select,
+  .db-audit-search,
+  .bank-amount-input,
+  .db-generate-row .db-filter-select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .db-table {
+    min-width: 0 !important;
+    width: 100%;
+  }
+
+  .db-chat-visual-scroll {
+    overflow-x: hidden;
+  }
+
+  table.mobile-cards thead {
+    display: none;
+  }
+
+  table.mobile-cards,
+  table.mobile-cards tbody {
+    display: block;
+    width: 100%;
+  }
+
+  table.mobile-cards tr {
+    display: block;
+    background: #fff;
+    border: 1px solid #e6ebf3;
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin: 0 0 10px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  }
+
+  table.mobile-cards td {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    border: 0;
+    padding: 6px 0;
+    font-size: 14px;
+  }
+
+  table.mobile-cards td:first-child {
+    font-weight: 800;
+    color: #0c2651;
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  table.mobile-cards td::before {
+    content: attr(data-label);
+    flex: 0 0 42%;
+    color: #7487a4;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  table.mobile-cards td:first-child::before {
+    display: none;
+  }
+
+  table.mobile-cards td.db-table-empty,
+  table.mobile-cards td.db-table-empty::before,
+  table.mobile-cards tr.db-exc-detail-row td::before {
+    display: block;
+    flex: none;
+    width: 100%;
+  }
+
+  table.mobile-cards tr.db-exc-detail-row {
+    margin-top: -6px;
+    border-radius: 0 0 14px 14px;
+  }
+
+  table.mobile-cards tr.db-exc-detail-row td {
+    display: block;
+  }
+
+  .db-forecast-row {
+    grid-template-columns: 48px 1fr auto !important;
+    gap: 8px;
+  }
+
+  .db-forecast-label {
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .db-forecast-label-full { display: none; }
+  .db-forecast-label-short { display: inline; }
+
+  .db-forecast-row .text-dim {
+    grid-column: 1 / -1;
+  }
+
+  .db-gst-bars > div,
+  .db-waterfall-row {
+    width: 100%;
+  }
+
+  .exc-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .exc-sheet {
+    width: 100%;
+    max-height: 92dvh;
+    height: 92dvh;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .exc-sheet-head {
+    flex-wrap: wrap;
+  }
+
+  .exc-sheet-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .exc-sheet-tabs button {
+    flex: 1 0 auto;
+    min-height: 44px;
+  }
+
+  .exc-sheet-close,
+  .drawer-close {
+    width: 44px;
+    height: 44px;
+  }
+
+  .db-modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .db-modal {
+    width: 100%;
+    max-height: 92dvh;
+    overflow: auto;
+    border-radius: 16px 16px 0 0;
+    padding: 18px 16px calc(20px + env(safe-area-inset-bottom));
+  }
+
+  .drawer {
+    width: 100%;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    height: 92dvh;
+    max-height: 92dvh;
+    border-radius: 16px 16px 0 0;
+    transform: translateY(110%);
+    transition: transform 0.3s ease;
+  }
+
+  .drawer.open {
+    right: 0;
+    transform: translateY(0);
+  }
+
+  .app-drawer {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    transform: none;
+    width: 100%;
+    max-height: 92dvh;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .circ-panel {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    top: auto !important;
+    width: 100% !important;
+    max-height: 92dvh;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .db-notify-menu {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: 100%;
+    max-height: 80dvh;
+    overflow: auto;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .earn-chart {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .earn-chart-col {
+    flex: 0 0 56px;
+    min-width: 56px;
+  }
+
+  .earn-period-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .db-page.db-chat-page {
+    height: calc(100dvh - 56px - 12px);
+    max-height: calc(100dvh - 56px - 12px);
+  }
+
+  .db-content:has(.db-chat-page) {
+    padding: 10px 10px 8px;
+    overflow: hidden;
+  }
+
+  .db-chat-card-full {
+    min-height: 0;
+  }
+
+  .db-chat-card-full .db-chat-input-row {
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    padding-bottom: env(safe-area-inset-bottom);
+    z-index: 2;
+  }
+
+  .db-chat-suggestions,
+  .db-chat-chips {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+  }
+
+  .db-chat-suggestions .db-suggest-btn,
+  .db-chat-chips .db-suggest-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .db-home-body .db-chat-card {
+    height: 420px;
+    max-height: 420px;
+    min-height: 280px;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero-actions button,
+  .tour-guide-ctas button,
+  .tour-guide-ctas .tour-primary,
+  .tour-guide-ctas .tour-secondary {
+    width: 100%;
+  }
+
+  .hero-title {
+    font-size: 1.7rem;
+  }
+
+  :root {
+    --header-height: auto;
+  }
+
+  .header {
+    height: auto;
+  }
+
+  .header .container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .header-container {
+    flex-direction: column;
+    align-items: stretch;
+    height: auto;
+    padding: 12px 0 14px;
+    gap: 10px;
+  }
+
+  .logo {
+    justify-content: center;
+    flex-wrap: wrap;
+    width: 100%;
+    text-align: center;
+  }
+
+  .nav {
+    width: 100%;
+    justify-content: space-between;
+    gap: 4px;
+    flex-wrap: nowrap;
+  }
+
+  .nav-link {
+    flex: 1 1 0;
+    text-align: center;
+    padding: 8px 4px;
+    white-space: nowrap;
+  }
+
+  .header-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .header-actions .lang-toggle {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .header-actions .btn {
+    width: 100%;
+    min-width: 0;
+    white-space: nowrap;
+    padding-left: 10px;
+    padding-right: 10px;
+    box-sizing: border-box;
+  }
+
+  .merchant-header {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .merchant-brand {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .merchant-header-actions {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    min-width: 0;
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .merchant-nav {
+    grid-row: 3 !important;
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+
+  .merchant-search {
+    grid-row: 4 !important;
+  }
+
+  .merchant-link-btn.subtle {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .merchant-product-card,
+  .merchant-product-body,
+  .merchant-product-footer {
+    min-width: 0;
+  }
+
+  .merchant-product-footer {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .merchant-product-footer strong {
+    width: 100%;
+  }
+
+  .merchant-add-btn,
+  .merchant-card-stepper {
+    min-width: 0 !important;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .merchant-nav-link {
+    flex: 0 0 auto;
+  }
+
+  .merchant-product-grid {
+    grid-template-columns: 1fr 1fr;
+    padding: 0 12px 120px;
+  }
+
+  .merchant-cart-layout {
+    grid-template-columns: 1fr;
+    padding-bottom: 8px;
+  }
+
+  .merchant-cart-shell {
+    padding-bottom: 168px;
+  }
+
+  .merchant-summary-card {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    z-index: 30;
+    margin: 0;
+    border-radius: 16px 16px 0 0;
+    padding: 12px 16px 16px;
+    box-shadow: 0 -8px 24px rgba(12, 38, 81, 0.12);
+  }
+
+  .merchant-checkout-shell {
+    padding-bottom: 200px;
+  }
+
+  .merchant-action-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    z-index: 30;
+    background: #fff;
+    padding: 10px 16px 12px;
+    box-shadow: 0 -8px 24px rgba(12, 38, 81, 0.1);
+    gap: 8px;
+  }
+
+  .merchant-pay-btn,
+  .merchant-cancel-btn {
+    width: 100%;
+    min-height: 48px;
+    white-space: normal;
+  }
+
+  .merchant-pay-btn,
+  .merchant-cancel-btn,
+  .merchant-checkout-btn,
+  .merchant-success-btn,
+  .merchant-synthetic-btn {
+    width: 100%;
+  }
+
+  .merchant-success-card {
+    width: 100%;
+    margin: 0;
+    border-radius: 16px;
+  }
+
+  .merchant-demo-acc summary {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    font-weight: 800;
+    color: #0c2651;
+    cursor: pointer;
+  }
+
+  .tour-popover {
+    max-width: min(340px, calc(100vw - 16px)) !important;
+    width: min(340px, calc(100vw - 16px)) !important;
+    max-height: 28vh !important;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tour-popover-body {
+    max-height: none;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding-top: 12px;
+    padding-bottom: 4px;
+  }
+
+  .tour-popover-footer {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .tour-popover-count {
+    grid-column: 1 / -1;
+    order: -1;
+  }
+
+  .mobile-filter-pack .db-exc-filters {
+    margin-top: 10px;
+  }
+
+  .sticky-page-cta {
+    position: sticky;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    z-index: 15;
+    width: 100%;
+  }
+
+  .db-content,
+  .db-exceptions-scroll,
+  .ops-table-card,
+  .bank-statement {
+    overflow-x: hidden;
+  }
+
+  .db-topbar,
+  .db-topbar-actions,
+  .db-topbar-right {
+    flex-wrap: wrap;
+  }
+
+  .db-gst-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .merchant-select-row,
+  .merchant-form label {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .merchant-success-shell {
+    padding: 16px 12px 24px;
+  }
+}
+
+@media (max-width: 399px) {
+  .merchant-product-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-kpi-row,
+  .db-stats-row,
+  .db-reports-summary-row {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.db-forecast-label-short { display: none; }
+
+@media (min-width: 721px) {
+  .db-date-sheet-trigger,
+  .db-date-sheet-layer,
+  .merchant-demo-acc summary,
+  .mobile-filter-trigger,
+  .mobile-filter-pack .db-date-sheet-head,
+  .mobile-filter-done {
+    display: none !important;
+  }
+
+  .merchant-demo-acc > *:not(summary) {
+    display: block !important;
+  }
+
+  .mobile-filter-body {
+    display: block !important;
+  }
+
+  .mobile-filter-pack .db-exc-filters {
+    display: flex !important;
+  }
+}

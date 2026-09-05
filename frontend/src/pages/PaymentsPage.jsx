@@ -74,7 +74,7 @@ export default function PaymentsPage() {
           </div>
         </aside>
         <div className="db-card ops-table-card" data-tour="payments-table">
-        <table className="db-table ops-table">
+        <table className="db-table ops-table mobile-cards">
           <thead>
             <tr>
               <th>ID</th>
@@ -98,13 +98,13 @@ export default function PaymentsPage() {
                   }
                 }}
               >
-                <td><span className="ops-id-link">{row.payment_id}</span></td>
-                <td><span className={`ops-workflow-pill ${row.open_exception ? 'unreviewed' : 'closed'}`}>{row.open_exception ? 'Unreviewed' : 'Closed'}</span></td>
-                <td>{row.reconciliation_status === 'exception' ? (row.mismatch_type === 'partial_settlement' ? 'Partially matched' : 'Unmatched') : 'Matched'}</td>
-                <td>{formatPaise(row.amount)}</td>
-                <td>{row.status || 'captured'}</td>
-                <td className={row.open_exception ? 'ops-cell-mismatch' : ''}>{formatTimestamp(row.created_at)}</td>
-                <td>{row.settlement_status}</td>
+                <td data-label="ID"><span className="ops-id-link">{row.payment_id}</span></td>
+                <td data-label="Workflow"><span className={`ops-workflow-pill ${row.open_exception ? 'unreviewed' : 'closed'}`}>{row.open_exception ? 'Unreviewed' : 'Closed'}</span></td>
+                <td data-label="Match status">{row.reconciliation_status === 'exception' ? (row.mismatch_type === 'partial_settlement' ? 'Partially matched' : 'Unmatched') : 'Matched'}</td>
+                <td data-label="Amount">{formatPaise(row.amount)}</td>
+                <td data-label="Input">{row.status || 'captured'}</td>
+                <td data-label="Trade date" className={row.open_exception ? 'ops-cell-mismatch' : ''}>{formatTimestamp(row.created_at)}</td>
+                <td data-label="Settlement">{row.settlement_status}</td>
               </tr>
             )) : (
               <tr><td colSpan="7" className="db-table-empty">{paymentStatus === 'matched' ? 'No matched payments in this filter.' : paymentStatus === 'exception' ? 'No exception payments in this filter.' : 'No payments in this date range.'}</td></tr>

@@ -349,19 +349,22 @@ export default function MerchantPage() {
               <p className="merchant-checkout-lead">
                 Card, UPI, and netbanking are collected inside Razorpay’s checkout. This page only plants the settlement outcome, then opens that modal — or posts a synthetic row for judges.
               </p>
-              <div className="merchant-demo-box">DEMO CONTROLS — not shown to a real customer</div>
-              <label className="merchant-select-row" data-tour="store-outcome">
-                Simulate settlement outcome
-                <select value={checkoutForm.aiOutcome} onChange={(event) => setCheckoutForm({ ...checkoutForm, aiOutcome: event.target.value })}>
-                  <option value="clean">Clean payment</option>
-                  <option value="missing_settlement">Missing settlement</option>
-                  <option value="fee_miscalculation">Fee miscalculation</option>
-                  <option value="tax_line_mismatch">GST line mismatch</option>
-                  <option value="timing_mismatch">Timing mismatch</option>
-                  <option value="duplicate_record">Duplicate record</option>
-                  <option value="unaccounted_refund">Unaccounted refund</option>
-                </select>
-              </label>
+              <details className="merchant-demo-acc">
+                <summary>Demo settings</summary>
+                <div className="merchant-demo-box">DEMO CONTROLS — not shown to a real customer</div>
+                <label className="merchant-select-row" data-tour="store-outcome">
+                  Simulate settlement outcome
+                  <select value={checkoutForm.aiOutcome} onChange={(event) => setCheckoutForm({ ...checkoutForm, aiOutcome: event.target.value })}>
+                    <option value="clean">Clean payment</option>
+                    <option value="missing_settlement">Missing settlement</option>
+                    <option value="fee_miscalculation">Fee miscalculation</option>
+                    <option value="tax_line_mismatch">GST line mismatch</option>
+                    <option value="timing_mismatch">Timing mismatch</option>
+                    <option value="duplicate_record">Duplicate record</option>
+                    <option value="unaccounted_refund">Unaccounted refund</option>
+                  </select>
+                </label>
+              </details>
               <div className="merchant-action-row">
                 <button className="merchant-cancel-btn" onClick={() => setMerchantView('cart')} type="button" disabled={checkoutBusy}>Back to cart</button>
                 <button

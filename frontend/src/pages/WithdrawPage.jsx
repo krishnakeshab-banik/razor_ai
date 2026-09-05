@@ -124,7 +124,7 @@ export default function WithdrawPage() {
           ) : (
             <p className="db-empty-hint">Enter an amount to see fees, tax and what you will receive.</p>
           )}
-          <button className="db-topbar-cta" type="button" data-tour="withdraw-confirm" disabled={!canConfirm || withdrawing} onClick={() => setConfirmOpen(true)}>
+          <button className="db-topbar-cta sticky-page-cta" type="button" data-tour="withdraw-confirm" disabled={!canConfirm || withdrawing} onClick={() => setConfirmOpen(true)}>
             Review confirmation
           </button>
         </div>
@@ -186,7 +186,7 @@ export default function WithdrawPage() {
         </div>
         <DateRangeFilter value={historyFilter} onChange={setHistoryFilter} />
         <input className="db-exc-search" value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder="Search withdrawal ID…" />
-        <table className="db-table bank-ledger">
+        <table className="db-table bank-ledger mobile-cards">
           <thead>
             <tr>
               <th>Reference</th>
@@ -201,13 +201,13 @@ export default function WithdrawPage() {
           <tbody>
             {withdrawHistory.length ? withdrawHistory.map((row) => (
               <tr key={row.withdrawal_id}>
-                <td className="db-exc-id">{row.withdrawal_id}</td>
-                <td>{formatTimestamp(row.created_at)}</td>
-                <td>{formatRupees(row.requested_rupees)}</td>
-                <td>{formatRupees(row.fee_rupees)}</td>
-                <td>{formatRupees(row.tax_rupees)}</td>
-                <td>{formatRupees(row.net_rupees)}</td>
-                <td><span className="db-status-badge db-status-reconciled">{row.status}</span></td>
+                <td data-label="Reference" className="db-exc-id">{row.withdrawal_id}</td>
+                <td data-label="Value date">{formatTimestamp(row.created_at)}</td>
+                <td data-label="Requested">{formatRupees(row.requested_rupees)}</td>
+                <td data-label="Fees">{formatRupees(row.fee_rupees)}</td>
+                <td data-label="Tax">{formatRupees(row.tax_rupees)}</td>
+                <td data-label="Credited">{formatRupees(row.net_rupees)}</td>
+                <td data-label="Status"><span className="db-status-badge db-status-reconciled">{row.status}</span></td>
               </tr>
             )) : (
               <tr><td colSpan="7" className="db-table-empty">No withdrawals yet.</td></tr>

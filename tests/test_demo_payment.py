@@ -45,10 +45,13 @@ def run():
     print(f"    {payment}")
     check("clean payment status is 'matched'", payment["reconciliation_status"] == "matched")
     check("clean payment has no mismatch_type", payment["mismatch_type"] is None)
-    from datetime import datetime
+    from datetime import datetime, timedelta, timezone
+    IST = timezone(timedelta(hours=5, minutes=30))
     created = payment.get("created_at")
-    parsed = datetime.fromisoformat(str(created)[:19])
-    check("clean payment uses local capture time", abs((datetime.now() - parsed).total_seconds()) < 180)
+    parsed = datetime.fromisoformat(str(created).replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=IST)
+    check("clean payment uses India capture time", abs((datetime.now(IST) - parsed.astimezone(IST)).total_seconds()) < 180)
 
     print("\n=== Test: missing_settlement ===")
     result = simulate(1500, "missing_settlement")

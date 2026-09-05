@@ -45,27 +45,52 @@ function clamp(value, min, max) {
 }
 
 function placeTooltip(rect, tipHeight = 280) {
-  const width = Math.min(TIP_WIDTH, window.innerWidth - 32);
+  const mobile = window.innerWidth < 721;
+  const edge = mobile ? 8 : 16;
+  const width = mobile
+    ? Math.min(340, window.innerWidth - edge * 2)
+    : Math.min(TIP_WIDTH, window.innerWidth - edge * 2);
+  const usedHeight = mobile ? Math.min(tipHeight, Math.round(window.innerHeight * 0.28), 240) : tipHeight;
+  const maxTop = Math.max(edge, window.innerHeight - usedHeight - edge);
   if (!rect) {
     return {
-      top: Math.max(24, (window.innerHeight - tipHeight) / 2),
-      left: Math.max(16, (window.innerWidth - width) / 2),
+      top: mobile ? maxTop : clamp((window.innerHeight - usedHeight) / 2, edge, maxTop),
+      left: Math.max(edge, (window.innerWidth - width) / 2),
       width,
       arrowLeft: width / 2,
-      side: 'bottom',
+      side: mobile ? 'top' : 'bottom',
     };
   }
   const centerX = rect.left + rect.width / 2;
-  const left = clamp(centerX - width / 2, 16, window.innerWidth - width - 16);
+  const left = clamp(centerX - width / 2, edge, window.innerWidth - width - edge);
   const spaceBelow = window.innerHeight - rect.bottom;
   const spaceAbove = rect.top;
-  const need = tipHeight + GAP + ARROW;
-  const side = spaceBelow >= need || spaceBelow >= spaceAbove ? 'bottom' : 'top';
-  const top = side === 'bottom'
-    ? clamp(rect.bottom + GAP, 16, window.innerHeight - 24)
-    : clamp(rect.top - tipHeight - GAP, 16, window.innerHeight - 24);
+  const need = usedHeight + GAP + ARROW;
+  let side;
+  let top;
+  if (mobile) {
+    const targetInTop = (rect.top + rect.height / 2) < window.innerHeight * 0.5;
+    if (targetInTop) {
+      side = 'top';
+      top = maxTop;
+    } else {
+      side = 'bottom';
+      top = edge;
+    }
+  } else if (spaceBelow >= need) {
+    side = 'bottom';
+    top = rect.bottom + GAP;
+  } else if (spaceAbove >= need) {
+    side = 'top';
+    top = rect.top - usedHeight - GAP;
+  } else {
+    side = spaceBelow >= spaceAbove ? 'bottom' : 'top';
+    top = side === 'bottom'
+      ? clamp(rect.bottom + GAP, edge, maxTop)
+      : clamp(rect.top - usedHeight - GAP, edge, maxTop);
+  }
   return {
-    top,
+    top: clamp(top, edge, maxTop),
     left,
     width,
     arrowLeft: clamp(centerX - left, 22, width - 22),
@@ -89,18 +114,51 @@ export default function ProductTour() {
   const [voiceOn, setVoiceOn] = useState(readVoicePref);
 
   const tipRef = useRef(null);
+  const dragRef = useRef({ active: false, offsetX: 0, offsetY: 0 });
   const [pos, setPos] = useState(() => placeTooltip(null));
+  const [userMoved, setUserMoved] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
-  const highlight = rect && targetReady ? {
-    top: Math.max(0, rect.top - PAD),
-    left: Math.max(0, rect.left - PAD),
-    width: Math.max(24, rect.width + PAD * 2),
-    height: Math.max(24, rect.height + PAD * 2),
-  } : null;
+  const highlight = (() => {
+    if (!rect || !targetReady) return null;
+    const next = {
+      top: Math.max(0, rect.top - PAD),
+      left: Math.max(0, rect.left - PAD),
+      width: Math.max(24, rect.width + PAD * 2),
+      height: Math.max(24, rect.height + PAD * 2),
+    };
+    if (window.innerWidth < 721) {
+      const maxH = Math.round(window.innerHeight * 0.3);
+      const maxW = window.innerWidth - 16;
+      next.width = Math.min(next.width, maxW);
+      next.height = Math.min(next.height, maxH);
+      next.left = clamp(next.left, 8, window.innerWidth - next.width - 8);
+      next.top = clamp(next.top, 8, window.innerHeight - next.height - 8);
+    }
+    return next;
+  })();
 
   useLayoutEffect(() => {
-    if (!active) return undefined;
-    const height = tipRef.current?.offsetHeight || 280;
+    if (!active) {
+      setUserMoved(false);
+      setDragging(false);
+      return undefined;
+    }
+    const el = tipRef.current;
+    if (userMoved) {
+      if (!el) return undefined;
+      const next = {
+        left: clamp(pos.left, 8, Math.max(8, window.innerWidth - el.offsetWidth - 8)),
+        top: clamp(pos.top, 8, Math.max(8, window.innerHeight - el.offsetHeight - 8)),
+      };
+      setPos((prev) => (
+        prev.top === next.top && prev.left === next.left
+          ? prev
+          : { ...prev, top: next.top, left: next.left }
+      ));
+      return undefined;
+    }
+    const height = el?.offsetHeight || 280;
     const nextPos = placeTooltip(highlight, height);
     setPos((prev) => (
       prev.top === nextPos.top
@@ -112,7 +170,7 @@ export default function ProductTour() {
         : nextPos
     ));
     return undefined;
-  }, [active, highlight, stepIndex, waiting, targetReady, locale]);
+  }, [active, highlight, stepIndex, waiting, targetReady, locale, userMoved]);
 
   useEffect(() => {
     if (!active || !visibleStep || !voiceOn || !canSpeak) {
@@ -132,6 +190,55 @@ export default function ProductTour() {
       if (!nextOn) stopSpeech();
       return nextOn;
     });
+  };
+
+  const clampBox = (left, top) => {
+    const el = tipRef.current;
+    const width = el?.offsetWidth || pos.width;
+    const height = el?.offsetHeight || 240;
+    const edge = 8;
+    return {
+      left: clamp(left, edge, Math.max(edge, window.innerWidth - width - edge)),
+      top: clamp(top, edge, Math.max(edge, window.innerHeight - height - edge)),
+    };
+  };
+
+  const onDragStart = (event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    if (event.target.closest('button, a, input, select, textarea')) return;
+    const grab = event.target.closest('.tour-popover-drag, .tour-popover-head, .tour-popover-progress');
+    if (!grab) return;
+    const box = tipRef.current?.getBoundingClientRect();
+    if (!box) return;
+    event.preventDefault();
+    dragRef.current = {
+      active: true,
+      offsetX: event.clientX - box.left,
+      offsetY: event.clientY - box.top,
+    };
+    try {
+      tipRef.current.setPointerCapture(event.pointerId);
+    } catch {
+      /* ignore */
+    }
+    setDragging(true);
+  };
+
+  const onDragMove = (event) => {
+    if (!dragRef.current.active) return;
+    const next = clampBox(event.clientX - dragRef.current.offsetX, event.clientY - dragRef.current.offsetY);
+    setUserMoved(true);
+    setPos((prev) => (
+      prev.top === next.top && prev.left === next.left
+        ? prev
+        : { ...prev, top: next.top, left: next.left }
+    ));
+  };
+
+  const onDragEnd = () => {
+    if (!dragRef.current.active) return;
+    dragRef.current.active = false;
+    setDragging(false);
   };
 
   const handleSkip = () => { stopSpeech(); skip(); };
@@ -216,18 +323,28 @@ export default function ProductTour() {
 
       <div
         ref={tipRef}
-        className={`tour-popover tour-popover-${pos.side}`}
+        className={`tour-popover tour-popover-${pos.side}${dragging ? ' is-dragging' : ''}${userMoved ? ' is-moved' : ''}`}
         style={{ top: pos.top, left: pos.left, width: pos.width }}
         role="dialog"
         aria-labelledby="tour-step-title"
+        aria-grabbed={dragging}
+        onPointerDown={onDragStart}
+        onPointerMove={onDragMove}
+        onPointerUp={onDragEnd}
+        onPointerCancel={onDragEnd}
       >
         <div className="tour-popover-progress" aria-hidden="true">
           <span style={{ width: `${progress}%` }} />
         </div>
+        <div className="tour-popover-drag" role="presentation" aria-hidden="true">
+          <i />
+        </div>
         <button type="button" className="tour-popover-close" onClick={handleSkip} aria-label={t('tour.skip')}>×</button>
-        <div className="tour-popover-body">
+        <div className="tour-popover-head">
           <p className="tour-popover-kicker">{visibleStep.section}</p>
           <h3 id="tour-step-title">{visibleStep.title}</h3>
+        </div>
+        <div className="tour-popover-body">
           <p>{waiting ? t('tour.waiting') : visibleStep.body}</p>
           {!waiting && visibleStep.meaning && (
             <div className="tour-callout">

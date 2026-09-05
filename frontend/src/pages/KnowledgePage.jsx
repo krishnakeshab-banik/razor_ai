@@ -97,7 +97,7 @@ export default function KnowledgePage() {
             <input className="db-exc-search" placeholder="Payment method (optional)" value={form.payment_method} onChange={(event) => setForm({ ...form, payment_method: event.target.value })} />
             <input className="db-exc-search" placeholder="Merchant / customer key (optional)" value={form.merchant_key} onChange={(event) => setForm({ ...form, merchant_key: event.target.value })} />
           </div>
-          <button className="db-topbar-cta" type="submit">Save rule</button>
+          <button className="db-topbar-cta sticky-page-cta" type="submit">Save rule</button>
         </form>
 
         <div className="db-card" data-tour="rules-list">

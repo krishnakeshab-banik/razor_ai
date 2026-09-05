@@ -15,9 +15,9 @@ fee_miscalculation, timing_mismatch, duplicate_record.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
-from config import FEE_PCT, TAX_PCT
+from config import FEE_PCT, IST, TAX_PCT, now_ist
 
 VALID_OUTCOMES = {
     "clean", "missing_settlement", "unaccounted_refund",
@@ -107,7 +107,7 @@ def build_demo_transaction(amount_rupees: float, outcome: str = "clean") -> list
         raise ValueError(f"Unknown outcome '{outcome}'. Must be one of {sorted(VALID_OUTCOMES)}")
 
     amount = round(amount_rupees * 100)
-    now = datetime.now()
+    now = now_ist()
     return apply_outcome_fields(
         amount=amount,
         payment_id=make_id("pay"),
@@ -136,9 +136,9 @@ def map_razorpay_payment(payment: dict, outcome: str = "clean") -> list[dict]:
     order_id = str(payment.get("order_id") or "").strip() or make_id("order")
     created_raw = payment.get("created_at")
     if isinstance(created_raw, (int, float)):
-        created_at = datetime.fromtimestamp(int(created_raw))
+        created_at = datetime.fromtimestamp(int(created_raw), tz=timezone.utc).astimezone(IST).replace(tzinfo=None)
     else:
-        created_at = datetime.now()
+        created_at = now_ist()
 
     method = str(payment.get("method") or "upi").lower()
     status = str(payment.get("status") or "captured")

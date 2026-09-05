@@ -5,6 +5,14 @@ an LLM. Override via environment variables for a different merchant.
 """
 
 import os
+from datetime import datetime, timedelta, timezone
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def now_ist() -> datetime:
+    """India wall clock, tz-naive so pandas cash/recon compares stay valid."""
+    return datetime.now(IST).replace(tzinfo=None)
 
 
 def _float(name: str, default: float) -> float:
@@ -59,8 +67,8 @@ def public_config() -> dict:
         "high_delta_paise": HIGH_DELTA_PAISE,
         "medium_delta_paise": MEDIUM_DELTA_PAISE,
         "razorpay_test_configured": bool(
-            (os.environ.get("RAZORPAY_KEY_ID") or "").strip()
-            and (os.environ.get("RAZORPAY_KEY_SECRET") or "").strip()
+            (os.environ.get("RAZORPAY_KEY_ID") or "").strip().strip('"').strip("'")
+            and (os.environ.get("RAZORPAY_KEY_SECRET") or "").strip().strip('"').strip("'")
         ),
         "notes": (
             "Fee is a percentage of GMV. GST is a percentage of the fee, not of GMV. "

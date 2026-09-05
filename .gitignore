@@ -27,3 +27,4 @@ frontend/dist/
 # OS and editor files
 .DS_Store
 .vscode/
+.vercel/

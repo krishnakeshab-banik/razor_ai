@@ -29,7 +29,7 @@ Loop: **Reconcile → Investigate → Explain → Resolve → Audit → Predict*
 1. Open the marketing site (`Overview`) and understand the close loop.
 2. Read **How it works** (ingest → match → resolve → forecast) and **Roadmap** (Phase 1 live vs later integrations).
 3. Click **Get started** (opens the controller) or **Try a live checkout** (Northwind Goods store).
-4. **Manual guide → Start Guided Tour** (or topbar **Tour**). The tour navigates the **real** controller (Dashboard → Payments → Exceptions → Cash → GST → Withdraw → Audit → Rules → Reports → Marketplace → Reconciliation). It highlights live UI; it does not click Withdraw, Apply fix, Close books, Generate Demo Dataset, or Refund. Each step has a **mic on/off** control that reads that step in the current language (EN or Hindi). Voice defaults to off.
+4. **Manual guide → Start Guided Tour** (or topbar **Tour**). The tour navigates the **real** controller (Dashboard → Payments → Exceptions → Cash → GST → Withdraw → Audit → Rules → Reports → Marketplace → Reconciliation). It highlights live UI; it does not click Withdraw, Apply fix, Close books, Generate Demo Dataset, or Refund. Drag the instruction box anywhere; it stays there until you start a new tour. Each step has a **mic on/off** control that reads that step in the current language (EN or Hindi). Voice defaults to off.
 5. Or buy a product in the **Northwind Goods** demo store (UPI / card / netbanking), pick a simulated settlement outcome, then refund from **Past orders**. Checkout and refunds land in the same reconciliation batch and create controller notifications.
 6. Generate (50 / 100 / 250 / 500 / 1000) or upload a CSV/XLSX/TXT batch and run the engine.
 7. See match rate, amount at risk, today's briefing, the action queue, cash (available / in transit / blocked / projected), GST lines, and payments with date filters.
@@ -91,6 +91,7 @@ Razor_AI/
     src/AppContext.jsx     All live state + API
     src/pages/             Every screen listed in §8
     src/components/        Chat, tour, search, notifications, drawer, language toggle
+    src/mobile.css         Phone layout (cards, bottom sheets, sticky CTAs)
     src/tour/              Guided-tour steps + TourProvider
     src/i18n/              EN/HI strings, tour Hindi copy, Web Speech helper
     src/lib/api.js         HTTP client (`language` on `/chat`)
@@ -406,7 +407,7 @@ Interactive docs: `http://localhost:8000/docs`.
 
 React 18 + Vite. Marketing, checkout, and controller are separate screens so copy and money state do not mix. `AppContext` owns API, cart, batch, chat, resolve, close, withdrawals, refunds, and a live poll while the controller is open. `LanguageProvider` wraps the shell; `getLocale()` is attached to every `/chat` call.
 
-Error boundary in `main.jsx` catches render crashes and clears a stuck tour from `sessionStorage`. Context modules persist identity across Vite Fast Refresh.
+Error boundary in `main.jsx` catches render crashes and clears a stuck tour from `sessionStorage`. Context modules persist identity across Vite Fast Refresh. `mobile.css` (imported from `main.jsx`) is presentation-only: phone widths (360–428px) use stacked KPI cards, card-per-row tables, bottom sheets for date filters / exception details / withdraw confirm, and sticky cart/pay actions. Handlers and `AppContext` are unchanged.
 
 ### 8.0 Screen index
 
@@ -699,15 +700,15 @@ Form fields: title, guidance, mismatch type (fee / GST / refund / timing / unkno
 | `ChatPanel.jsx` | `handleSendChat`, `handleSuggestedClick`, `handleConfirmChatAction`, `handleGroundedTagClick` | Compact home panel + full `ChatPage`. Sends `language: getLocale()`. Chips and intro follow EN/HI. `POST /chat`, `POST /chat/confirm` |
 | `LanguageToggle.jsx` + `i18n/` | `useLanguage`, `t()`, `getLocale()` | EN/HI chrome. Stored as `razorai-lang` |
 | `ExceptionDrawer.jsx` | `handleOpenDrawer`, resolve / investigate | Deep-dive from grounded `pay_…` chips |
-| `DateRangeFilter.jsx` | `onChange` presets + custom date/time | Payments, Exceptions, Audit, Withdraw history |
+| `DateRangeFilter.jsx` | `onChange` presets + custom date/time | Payments, Exceptions, Audit, Withdraw history. Phone: filter opens as a bottom sheet. Audit wraps date/actor/action in one **Filters** sheet |
 | `FinanceSearch.jsx` | `run`, `openPayment` | Top-bar search → Exceptions |
 | `NotificationMenu.jsx` | `handleOpenNotification`, `handleMarkAllNotificationsRead` | Unread badge; click-through to Payments / Exceptions / GST / Withdraw |
-| `ProductTour.jsx` + `TourContext.jsx` | `startTour`, `openChooser`, `localizeTourStep`, `speakText` | Live-DOM steps; Hindi copy from `tourHi.js`; per-step mic (Web Speech, `hi-IN` / `en-IN`); never auto-clicks mutating buttons |
+| `ProductTour.jsx` + `TourContext.jsx` | `startTour`, `openChooser`, `localizeTourStep`, `speakText` | Live-DOM steps; Hindi copy from `tourHi.js`; draggable instruction box (position kept for the tour); per-step mic (Web Speech); never auto-clicks mutating buttons |
 | `Toasts.jsx` | `triggerToast` | Action feedback |
 
 **Chat.** Home compact card 480px with inner scroll; expand opens `dashPage === 'chat'` (same thread). Starter: matching is rule-based; ask how to use a page **or** about this batch; will not share keys or contact fields. Suggestion chips follow the selected language. Disclaimer (compact only): only this panel calls Gemini. Full page shows tool tables/charts from `tool_payload`.
 
-**Tour.** Spotlight + tethered popover on real `data-tour` hooks. Resume via `sessionStorage` key `razorai-product-tour`. Hands-on waits for a real click. **Never** auto-clicks Generate Demo Dataset, Run reconciliation, Apply suggested fix, Close books, Confirm withdrawal, or Refund. Each step can toggle **voice on/off** (`sessionStorage` `razorai-tour-voice`, default off). If left on, the browser reads title + body + meaning + action in EN or Hindi. Speech stops on skip, finish, or unmount.
+**Tour.** Spotlight + tethered popover on real `data-tour` hooks. On phones the card stays compact and docks opposite the highlight so the bordered control stays visible. Drag the handle or title to move the card; that position is kept for the rest of the tour and only resets when a new tour starts. Resume via `sessionStorage` key `razorai-product-tour`. Hands-on waits for a real click. **Never** auto-clicks Generate Demo Dataset, Run reconciliation, Apply suggested fix, Close books, Confirm withdrawal, or Refund. Each step can toggle **voice on/off** (`sessionStorage` `razorai-tour-voice`, default off). If left on, the browser reads title + body + meaning + action in EN or Hindi. English speech prefers a neural/Google voice when the OS has one, speaks slightly slower, and expands GST / GMV / rupees. Speech stops on skip, finish, or unmount.
 
 ---
 
@@ -767,7 +768,7 @@ npm run dev
 
 Open `http://localhost:5173`. API is `http://localhost:8000` (see `.env.example`). Docs: `http://localhost:8000/docs`.
 
-Production-style: `npm run build` then serve `frontend/dist` with `VITE_API_URL` pointing at the API.
+Production: UI on **Vercel** (`vercel.json` builds `frontend/`). API on **Render** (`render.yaml` — FastAPI cannot persist batch/SQLite as a Vercel serverless function). Set `VITE_API_URL` on Vercel to the Render origin. Secrets stay on the API host only.
 
 Regenerate seed data:
 
@@ -799,7 +800,9 @@ Payments rail All / Matched / Exceptions and the Word `.docx` close report are *
 - Withdrawals are synthetic ledger entries, not bank payouts
 - Chat grounding rejects invented payment IDs; it does not parse every rupee figure in free text
 - Hindi is chrome + chat + tour, not a full translation of every table, briefing, or intel string
-- Tour narration depends on the browser/OS having an English or Hindi voice
+- Tour narration depends on the browser/OS having an English or Hindi voice; English ranking prefers neural voices but cannot invent one if the OS only has a desktop SAPI voice
+- Phone layout is CSS-only (`mobile.css`). Store checkout still uses Razorpay’s hosted modal for UPI / card / netbanking — there are no in-page method tabs
+- Local API is often `http://127.0.0.1:8001` when `frontend/.env.local` sets `VITE_API_URL` (default docs still say 8000)
 - 100% detection on the synthetic answer key is **fixture correctness**, not a production accuracy claim
 - Chargebacks, FX, and live payout batches are out of scope
 
@@ -823,7 +826,8 @@ Since the first React controller + store + close-the-books loop:
 - Full-page **Settlement Q&A** (`dashPage === 'chat'`) sharing the home conversation; tool visuals from books JSON
 - Home **Open exceptions** + **Settlement Q&A** capped at 480px with internal scroll
 - Ops-style payments and exceptions tables
-- **Interactive product tour** on the live UI (spotlight, route wait, skip missing, hands-on, no auto-mutation). Per-step **mic** narrates the step in the preferred language (Web Speech API, off by default)
+- **Interactive product tour** on the live UI (spotlight, route wait, skip missing, hands-on, no auto-mutation). Instruction box is **draggable** and keeps that place until a new tour. Per-step **mic** narrates in EN/Hindi (Web Speech API, off by default); English voice picks a more natural browser voice when available
+- **Phone layouts** (360–428px): card-per-row tables, stacked KPI cards, swipeable cash strips, bottom-sheet date filters / exception details / withdraw confirm, sticky cart **Proceed** and checkout **Pay**, 44px tap targets, existing sidebar drawer unchanged. No API or `AppContext` handler changes
 - 8-second live refresh of dashboard, payments, cash, GST, notifications
 - Error boundary + HMR-safe React context so a tour crash cannot white-screen the app
 - Page-by-page inventory in this document (purpose, controls, handlers, APIs)

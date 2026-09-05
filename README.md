@@ -118,7 +118,41 @@ Open `http://localhost:5173`. API docs: `http://localhost:8000/docs`.
 
 ## How to deploy
 
-Run the FastAPI process (uvicorn / any ASGI host) and serve `frontend/dist` after `npm run build`, with `VITE_API_URL` pointing at the API. SQLite file `razorai.db` is created next to the backend working directory. No LLM is required for recon or cash.
+This repo is two processes. **Vercel hosts the React UI.** The FastAPI engine (in-memory batch + SQLite) cannot stay durable as a Vercel serverless function, so the API goes on a small always-on host such as **Render**.
+
+Do not put `GEMINI_API_KEY` or Razorpay secrets in Vercel. Those belong only on the API host.
+
+### 1. API on Render
+
+1. Open [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint** and connect `https://github.com/krishnakeshab-banik/razor_ai` (or **New Web Service** and point it at the same repo).
+2. If you use the repo `render.yaml`: service name `razor-ai-api`, start command `uvicorn main:app --app-dir backend --host 0.0.0.0 --port $PORT`.
+3. Set env vars on that service (never commit them):
+   - `GEMINI_API_KEY` — optional, Settlement Q&A
+   - `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` — optional, Test Mode checkout
+4. Wait until the service is **Live**. Copy the URL, e.g. `https://razor-ai-api.onrender.com` (no trailing slash).
+5. Free Render instances sleep after idle time. The first request after sleep can take ~30–50s.
+
+SQLite and the in-memory batch reset when the API dyno restarts. That is expected for this demo.
+
+### 2. UI on Vercel
+
+The GitHub repo already has a root `vercel.json` (build `frontend/`, publish `frontend/dist`).
+
+1. Open [Vercel](https://vercel.com/new) → **Import** `krishnakeshab-banik/razor_ai`.
+2. Leave Root Directory empty (the root `vercel.json` already targets `frontend/`).
+3. **Settings → Environment Variables** → add **Production** (and Preview if you want):
+   - `VITE_API_URL` = the Render URL from step 1 (`https://….onrender.com`)
+4. Deploy. `VITE_API_URL` is baked in at **build** time — if you change it later, Redeploy.
+
+Or from this machine, already signed in to the Vercel CLI:
+
+```bash
+vercel --prod
+```
+
+Then set `VITE_API_URL` in the project Environment Variables and redeploy.
+
+Local production-style (no Vercel): run uvicorn, `npm run build` in `frontend`, serve `frontend/dist`, with `VITE_API_URL` pointing at the API.
 
 ## Environment variables
 
@@ -156,7 +190,9 @@ Controller sidebar: Dashboard, Settlement Q&A, Payments, Reconciliation, Excepti
 - **Store** (header, not sidebar) — Northwind Goods checkout + Past orders refunds.
 - **Language** — **EN | हिं** on the marketing header, controller topbar, and store header. Preference is stored in `localStorage` (`razorai-lang`). Sidebar, home KPIs, page titles, chat chips, and tour copy switch immediately. Table cells and engine IDs stay as recorded.
 
-The tour highlights real controls. It will not auto-click Withdraw, Apply fix, Close books, Generate Demo Dataset, or Refund. Each step can turn **voice on or off**; if left on, the browser reads that step’s title, meaning, and action in English or Hindi. Voice preference is session-only (`razorai-tour-voice`) and defaults to off.
+The tour highlights real controls. It will not auto-click Withdraw, Apply fix, Close books, Generate Demo Dataset, or Refund. Drag the instruction box to keep it out of the way — the position holds until you start a new tour. Each step can turn **voice on or off**; if left on, the browser reads that step’s title, meaning, and action in English or Hindi. English prefers a more natural installed voice. Voice preference is session-only (`razorai-tour-voice`) and defaults to off.
+
+On a phone (about 360–428px) the controller and store use card lists, bottom sheets, and sticky Pay / Proceed actions. That is layout only — the same APIs run as on desktop.
 
 For a 5-minute judging pass, follow `DEMO_SCRIPT.md` (Reconciliation → Exceptions → Close books). Do not equal-airtime every page.
 

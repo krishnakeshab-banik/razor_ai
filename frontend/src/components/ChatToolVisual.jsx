@@ -19,7 +19,7 @@ function formatCompareValue(row, value) {
 function ToolTable({ columns, rows, empty }) {
   return (
     <div className="db-chat-visual-scroll">
-      <table className="db-table ops-table">
+      <table className="db-table ops-table mobile-cards">
         <thead>
           <tr>
             {columns.map((col) => (
@@ -31,7 +31,7 @@ function ToolTable({ columns, rows, empty }) {
           {rows.length ? rows.map((row, index) => (
             <tr key={row.payment_id || row.bucket || row.metric || index}>
               {columns.map((col) => (
-                <td key={col.key} className={col.key === 'payment_id' ? 'db-exc-id' : undefined}>
+                <td key={col.key} data-label={col.label} className={col.key === 'payment_id' ? 'db-exc-id' : undefined}>
                   {col.render ? col.render(row) : (row[col.key] ?? '—')}
                 </td>
               ))}
@@ -178,7 +178,10 @@ function CashVisual({ payload }) {
         <div className="db-forecast-list">
           {forecast.map((day) => (
             <div className="db-forecast-row" key={day.date}>
-              <span className="db-forecast-label">{day.label}</span>
+              <span className="db-forecast-label">
+                <span className="db-forecast-label-full">{day.label}</span>
+                <span className="db-forecast-label-short">{String(day.label || '').slice(0, 3)}</span>
+              </span>
               <div className="db-forecast-bar-track">
                 <div className="db-forecast-bar" style={{ width: `${(Number(day.expected_inflow_rupees) / maxInflow) * 100}%` }} />
               </div>

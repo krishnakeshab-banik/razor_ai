@@ -1366,7 +1366,18 @@ def create_razorpay_order(req: RazorpayCreateOrderRequest):
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=502, detail="Could not create Razorpay order") from exc
+        hint = str(exc).lower()
+        if "auth" in hint or "401" in hint or "invalid key" in hint or "unauthorized" in hint:
+            detail = (
+                "Razorpay rejected the test keys. On Render set RAZORPAY_KEY_ID and "
+                "RAZORPAY_KEY_SECRET from Test Mode, with no quotes, then restart the service."
+            )
+        else:
+            detail = (
+                "Could not create Razorpay order. Use a matching Test Mode key pair on the "
+                "API host (Render), not only on Vercel."
+            )
+        raise HTTPException(status_code=502, detail=detail) from exc
 
     order_id = str(order.get("id") or "")
     if not order_id:

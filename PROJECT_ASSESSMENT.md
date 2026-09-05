@@ -25,7 +25,8 @@ Measured detection against a **hidden** generated answer key is fixture correctn
 - Human-taught rules and resolution memory (guidance only; not auto-applied).
 - Grounded chatbot with tools; invented `pay_…` IDs are rejected; confirm path for consequential chat actions. Product/how-to questions work without a batch. Secrets, `.env`, answer keys, and customer contact fields are stripped or refused. **EN | हिं** switches dashboard chrome and asks Gemini to answer in Hindi.
 - Dashboard home exception list and chat are height-capped with internal scroll; a full **Settlement Q&A** page shares the same thread.
-- Interactive product tour on the live UI (Manual guide). The tour never mutates financial records. Each step can turn mic narration on or off in the selected language.
+- Interactive product tour on the live UI (Manual guide). The tour never mutates financial records. The instruction box can be dragged and stays put for the rest of that tour. Each step can turn mic narration on or off; English speech prefers a neural/Google voice when the browser has one.
+- Phone-width presentation (`frontend/src/mobile.css`): card lists instead of dense tables, bottom sheets, sticky cart/pay actions. Same APIs and handlers as desktop.
 - Tests: `test_reconciliation`, `test_explainations`, `test_chatbot`, `test_demo_payment`, `test_api`, `test_books`, `test_controller_features`, `test_ops_features`, `test_controller_intel`.
 
 ## Honest limits

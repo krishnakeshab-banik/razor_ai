@@ -1,7 +1,7 @@
 import React from 'react';
 import { useApp } from '../AppContext';
 import ChatPanel, { ExceptionBadge } from '../components/ChatPanel';
-import DateRangeFilter from '../components/DateRangeFilter';
+import DateRangeFilter, { MobileFilterPack } from '../components/DateRangeFilter';
 import NotificationMenu from '../components/NotificationMenu';
 import CashPositionPage from './CashPage';
 import ChatPage from './ChatPage';
@@ -281,7 +281,7 @@ function HomePage() {
             </div>
           </div>
           <div className="db-exceptions-scroll">
-          <table className="db-table">
+          <table className="db-table mobile-cards">
             <thead>
               <tr>
                 <th>Payment ID</th>
@@ -294,10 +294,10 @@ function HomePage() {
               {previewExceptions.length ? previewExceptions.map((exc) => (
                 <React.Fragment key={exc.payment_id}>
                   <tr className={`db-exc-row ${expandedExc === exc.payment_id ? 'expanded' : ''}`} onClick={() => setExpandedExc(expandedExc === exc.payment_id ? null : exc.payment_id)}>
-                    <td className="db-exc-id">{exc.payment_id}</td>
-                    <td><ExceptionBadge type={exc.mismatch_type} /></td>
-                    <td>{exc.delta !== null && exc.delta !== undefined ? <span className="db-delta-pill">{formatDelta(exc.delta)}</span> : <span className="db-delta-pill muted">No delta</span>}</td>
-                    <td className="db-exc-chevron">{expandedExc === exc.payment_id ? 'Hide' : 'Open'}</td>
+                    <td data-label="Payment ID" className="db-exc-id">{exc.payment_id}</td>
+                    <td data-label="Issue"><ExceptionBadge type={exc.mismatch_type} /></td>
+                    <td data-label="Delta">{exc.delta !== null && exc.delta !== undefined ? <span className="db-delta-pill">{formatDelta(exc.delta)}</span> : <span className="db-delta-pill muted">No delta</span>}</td>
+                    <td data-label="Action" className="db-exc-chevron">{expandedExc === exc.payment_id ? 'Hide' : 'Open'}</td>
                   </tr>
                   {expandedExc === exc.payment_id && (
                     <tr className="db-exc-detail-row">
@@ -395,7 +395,7 @@ function ReconciliationPage() {
             <div className="db-upload-actions">
               <button className="db-upload-btn db-upload-btn-muted" onClick={downloadBatchTemplate} type="button">Download template</button>
               <button className="db-upload-btn db-upload-btn-primary" onClick={() => batchInputRef.current?.click()} disabled={!isConnected} type="button">Browse files</button>
-              <button className="db-upload-btn db-upload-btn-primary" data-tour="reconciliation-run" onClick={() => handleRunReconciliation({ force: true })} disabled={!isConnected || !batchLoaded} type="button">
+              <button className="db-upload-btn db-upload-btn-primary sticky-page-cta" data-tour="reconciliation-run" onClick={() => handleRunReconciliation({ force: true })} disabled={!isConnected || !batchLoaded} type="button">
                 {reconciliationRun ? 'Re-run engine' : 'Run reconciliation'}
               </button>
             </div>
@@ -440,7 +440,7 @@ function ReconciliationPage() {
                 </ul>
               )}
               {!!ingestReport.preview?.length && (
-                <table className="db-table">
+                <table className="db-table mobile-cards">
                   <thead>
                     <tr>
                       {Object.keys(ingestReport.preview[0]).map((col) => <th key={col}>{col}</th>)}
@@ -449,7 +449,7 @@ function ReconciliationPage() {
                   <tbody>
                     {ingestReport.preview.map((row, idx) => (
                       <tr key={row.payment_id || idx}>
-                        {Object.keys(ingestReport.preview[0]).map((col) => <td key={col}>{String(row[col] ?? '')}</td>)}
+                        {Object.keys(ingestReport.preview[0]).map((col) => <td key={col} data-label={col}>{String(row[col] ?? '')}</td>)}
                       </tr>
                     ))}
                   </tbody>
@@ -482,7 +482,7 @@ function ReconciliationPage() {
           <div className="db-card">
             <h3 className="db-card-title">Current batch</h3>
             <p className="db-card-sub">Stable ID — not regenerated on every render</p>
-            <table className="db-table">
+            <table className="db-table mobile-cards">
               <thead>
                 <tr>
                   <th>Batch ID</th>
@@ -495,20 +495,20 @@ function ReconciliationPage() {
               <tbody>
                 {batchLoaded && metrics?.batch ? (
                   <tr>
-                    <td><strong>{metrics.batch.batch_id}</strong></td>
-                    <td>{new Date(metrics.batch.loaded_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</td>
-                    <td>
+                    <td data-label="Batch ID"><strong>{metrics.batch.batch_id}</strong></td>
+                    <td data-label="Loaded">{new Date(metrics.batch.loaded_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+                    <td data-label="Status">
                       <span className={`db-status-badge ${reconciliationRun ? 'db-status-reconciled' : 'db-status-pending'}`}>
                         {reconciliationRun ? 'Reconciled' : 'Pending'}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="Match rate">
                       <div className="db-match-bar-wrap">
                         <div className="db-match-bar" style={{ width: reconciliationRun ? `${(metrics.match_rate || 0) * 100}%` : '0%', backgroundColor: reconciliationRun ? '#10b981' : '#f59e0b' }} />
                         <span>{reconciliationRun ? matchPercent(metrics) : '—'}</span>
                       </div>
                     </td>
-                    <td>{metrics.batch.source}</td>
+                    <td data-label="Source">{metrics.batch.source}</td>
                   </tr>
                 ) : (
                   <tr><td colSpan="5" className="db-table-empty">No batch loaded.</td></tr>
@@ -684,7 +684,7 @@ function ExceptionsPage() {
           </div>
         </aside>
         <div className="db-card ops-table-card" data-tour="exceptions-list">
-          <table className="db-table ops-table">
+          <table className="db-table ops-table mobile-cards">
             <thead>
               <tr>
                 <th>ID</th>
@@ -703,17 +703,17 @@ function ExceptionsPage() {
                 const mismatch = exc.expected_settlement != null && exc.settlement_amount != null && exc.expected_settlement !== exc.settlement_amount;
                 return (
                   <tr key={exc.payment_id} className={selectedExcId === exc.payment_id ? 'db-row-selected' : ''} onClick={() => { setSelectedExcId(exc.payment_id); openPanel('details'); }}>
-                    <td><button type="button" className="ops-id-link" onClick={(event) => { event.stopPropagation(); setSelectedExcId(exc.payment_id); openPanel('details'); }}>{exc.payment_id}</button></td>
-                    <td><span className={`ops-workflow-pill ${(exc.workflow_status || 'Unreviewed').toLowerCase().replace(/\s+/g, '-')}`}>{exc.workflow_status || 'Unreviewed'}</span></td>
-                    <td>{exc.open ? (mismatch ? 'Partially matched' : 'Unmatched') : 'Matched'}</td>
-                    <td>{Math.round((exc.confidence || 0) * 100)}%</td>
-                    <td>{titleCaseType(exc.mismatch_type)}</td>
-                    <td><span className={`db-priority-badge db-priority-${(exc.priority || 'Low').toLowerCase()}`}>{exc.priority || 'Low'}</span></td>
-                    <td>{formatTimestamp(exc.created_at)}</td>
-                    <td className={mismatch ? 'ops-cell-mismatch' : ''}>
+                    <td data-label="ID"><button type="button" className="ops-id-link" onClick={(event) => { event.stopPropagation(); setSelectedExcId(exc.payment_id); openPanel('details'); }}>{exc.payment_id}</button></td>
+                    <td data-label="Workflow"><span className={`ops-workflow-pill ${(exc.workflow_status || 'Unreviewed').toLowerCase().replace(/\s+/g, '-')}`}>{exc.workflow_status || 'Unreviewed'}</span></td>
+                    <td data-label="Match status">{exc.open ? (mismatch ? 'Partially matched' : 'Unmatched') : 'Matched'}</td>
+                    <td data-label="Score">{Math.round((exc.confidence || 0) * 100)}%</td>
+                    <td data-label="Issue">{titleCaseType(exc.mismatch_type)}</td>
+                    <td data-label="Priority"><span className={`db-priority-badge db-priority-${(exc.priority || 'Low').toLowerCase()}`}>{exc.priority || 'Low'}</span></td>
+                    <td data-label="Captured">{formatTimestamp(exc.created_at)}</td>
+                    <td data-label="Expected vs credited" className={mismatch ? 'ops-cell-mismatch' : ''}>
                       {mismatch ? <small>{formatPaise(exc.expected_settlement)} vs {formatPaise(exc.settlement_amount)}</small> : '—'}
                     </td>
-                    <td>{formatAge(exc.created_at)}</td>
+                    <td data-label="Age">{formatAge(exc.created_at)}</td>
                   </tr>
                 );
               }) : (
@@ -989,7 +989,10 @@ function CashPage() {
         <div className="db-forecast-list">
           {(cash?.forecast || []).map((day) => (
             <div className="db-forecast-row" key={day.date}>
-              <span className="db-forecast-label">{day.label}</span>
+              <span className="db-forecast-label">
+                <span className="db-forecast-label-full">{day.label}</span>
+                <span className="db-forecast-label-short">{String(day.label || '').slice(0, 3)}</span>
+              </span>
               <div className="db-forecast-bar-track">
                 <div className="db-forecast-bar" style={{ width: `${(day.expected_inflow_rupees / maxInflow) * 100}%` }} />
               </div>
@@ -1045,7 +1048,7 @@ function CashPage() {
 
       <div className="db-card">
         <h3 className="db-card-title">GST lines that need a look</h3>
-        <table className="db-table">
+        <table className="db-table mobile-cards">
           <thead>
             <tr>
               <th>Payment ID</th>
@@ -1058,11 +1061,11 @@ function CashPage() {
           <tbody>
             {(taxLines?.lines || []).slice(0, 12).map((line) => (
               <tr key={line.payment_id}>
-                <td className="db-exc-id">{line.payment_id}</td>
-                <td>{formatRupees(line.fee_rupees)}</td>
-                <td>{formatRupees(line.expected_gst_rupees)}</td>
-                <td>{formatRupees(line.actual_gst_rupees)}</td>
-                <td><span className={`db-status-badge ${line.status === 'matched' ? 'db-status-reconciled' : 'db-status-pending'}`}>{line.status}</span></td>
+                <td data-label="Payment ID" className="db-exc-id">{line.payment_id}</td>
+                <td data-label="Fee">{formatRupees(line.fee_rupees)}</td>
+                <td data-label="Expected GST">{formatRupees(line.expected_gst_rupees)}</td>
+                <td data-label="Actual GST">{formatRupees(line.actual_gst_rupees)}</td>
+                <td data-label="Status"><span className={`db-status-badge ${line.status === 'matched' ? 'db-status-reconciled' : 'db-status-pending'}`}>{line.status}</span></td>
               </tr>
             ))}
             {!(taxLines?.lines || []).length && (
@@ -1075,7 +1078,7 @@ function CashPage() {
       {closeReport && (
         <div className="db-card">
           <h3 className="db-card-title">Last close — exceptions the agent would not invent</h3>
-          <table className="db-table">
+          <table className="db-table mobile-cards">
             <thead>
               <tr>
                 <th>Payment ID</th>
@@ -1086,9 +1089,9 @@ function CashPage() {
             <tbody>
               {closeReport.remaining_exceptions.map((item) => (
                 <tr key={item.payment_id}>
-                  <td className="db-exc-id">{item.payment_id}</td>
-                  <td><ExceptionBadge type={item.mismatch_type} /></td>
-                  <td>{item.suggested_action?.detail || item.explanation}</td>
+                  <td data-label="Payment ID" className="db-exc-id">{item.payment_id}</td>
+                  <td data-label="Type"><ExceptionBadge type={item.mismatch_type} /></td>
+                  <td data-label="Why it stayed">{item.suggested_action?.detail || item.explanation}</td>
                 </tr>
               ))}
             </tbody>
@@ -1128,27 +1131,29 @@ function AuditPage() {
       </div>
       <div className="db-card" data-tour="audit-filters">
         <h3 className="db-card-title">Find an event</h3>
-        <DateRangeFilter value={auditFilter} onChange={setAuditFilter} />
-        <div className="db-exc-filters">
-          <input className="db-audit-search" value={auditSearch} onChange={(event) => setAuditSearch(event.target.value)} placeholder="Search payment IDs, actions, or text…" />
-          <select className="db-filter-select" value={auditSource} onChange={(event) => setAuditSource(event.target.value)}>
-            <option value="all">All actors</option>
-            <option value="human">Human / controller</option>
-            <option value="ai">Gemini</option>
-            <option value="rule_engine">Rule engine</option>
-            <option value="razorpay_test_api">Razorpay test</option>
-          </select>
-          <select className="db-filter-select" value={auditActionType} onChange={(event) => setAuditActionType(event.target.value)}>
-            <option value="all">All actions</option>
-            <option value="exception">Exception</option>
-            <option value="match">Match</option>
-            <option value="apply_fix">Apply fix</option>
-            <option value="escalate">Escalate</option>
-            <option value="investigate">Investigate</option>
-            <option value="withdrawal">Withdrawal</option>
-            <option value="chat_query">Chat</option>
-          </select>
-        </div>
+        <MobileFilterPack label="Filters">
+          <DateRangeFilter value={auditFilter} onChange={setAuditFilter} mobileSheet={false} />
+          <div className="db-exc-filters">
+            <input className="db-audit-search" value={auditSearch} onChange={(event) => setAuditSearch(event.target.value)} placeholder="Search payment IDs, actions, or text…" />
+            <select className="db-filter-select" value={auditSource} onChange={(event) => setAuditSource(event.target.value)}>
+              <option value="all">All actors</option>
+              <option value="human">Human / controller</option>
+              <option value="ai">Gemini</option>
+              <option value="rule_engine">Rule engine</option>
+              <option value="razorpay_test_api">Razorpay test</option>
+            </select>
+            <select className="db-filter-select" value={auditActionType} onChange={(event) => setAuditActionType(event.target.value)}>
+              <option value="all">All actions</option>
+              <option value="exception">Exception</option>
+              <option value="match">Match</option>
+              <option value="apply_fix">Apply fix</option>
+              <option value="escalate">Escalate</option>
+              <option value="investigate">Investigate</option>
+              <option value="withdrawal">Withdrawal</option>
+              <option value="chat_query">Chat</option>
+            </select>
+          </div>
+        </MobileFilterPack>
         <div className="db-audit-legend-row">
           <span className="db-legend-dot db-legend-engine" /> Rule engine / human
           <span className="db-legend-dot db-legend-razorpay" style={{ marginLeft: 16 }} /> Razorpay test
@@ -1322,7 +1327,7 @@ function ReportsPage() {
           <p className="db-page-sub">Earning analysis from the active batch — overall, monthly and yearly. Live figures, not a placeholder.</p>
         </div>
         {reconciliationRun && (
-          <button className="db-topbar-cta" type="button" onClick={downloadWordReport}>
+          <button className="db-topbar-cta sticky-page-cta" type="button" onClick={downloadWordReport}>
             Download Word close report
           </button>
         )}
