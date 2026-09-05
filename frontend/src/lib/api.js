@@ -10,7 +10,14 @@ async function parseError(response) {
 }
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, options);
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, options);
+  } catch {
+    throw new Error(
+      'API host did not respond. Render free instances sleep — wait ~30s and retry. If this keeps happening, open the Render service and confirm it is Live.'
+    );
+  }
   if (!response.ok) {
     throw new Error(await parseError(response));
   }
@@ -31,19 +38,31 @@ export const api = {
   runReconciliation: () => request('/reconcile/run', { method: 'POST' }),
   metrics: () => request('/reconcile/metrics'),
   exceptions: (includeClosed = false) => request(`/reconcile/exceptions?include_closed=${includeClosed}`),
-  chat: (question, context = {}) => request('/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      question,
-      date: context.date || undefined,
-      preset: context.preset || undefined,
-      start: context.start || undefined,
-      end: context.end || undefined,
-      batch_id: context.batch_id || undefined,
-      language: context.language || undefined,
-    }),
-  }),
+  chat: async (question, context = {}) => {
+    const payload = {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question,
+        date: context.date || undefined,
+        preset: context.preset || undefined,
+        start: context.start || undefined,
+        end: context.end || undefined,
+        batch_id: context.batch_id || undefined,
+        language: context.language || undefined,
+      }),
+    };
+    try {
+      return await request('/chat', payload);
+    } catch (error) {
+      await new Promise((resolve) => window.setTimeout(resolve, 800));
+      try {
+        return await request('/chat', payload);
+      } catch {
+        throw error;
+      }
+    }
+  },
   audit: (limit = 100) => request(`/audit-trail?limit=${limit}`),
   analytics: () => request('/analytics/summary'),
   cash: () => request('/cash/position'),

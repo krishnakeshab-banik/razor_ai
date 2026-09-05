@@ -33,7 +33,7 @@ from pydantic import BaseModel
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from data.generate_data import generate_batch
+from data.generate_data import ensure_independent_cash_lanes, generate_batch
 
 from cash import cash_alerts, compute_cash_position, what_if
 from catalog import list_payments, public_payment, search_exceptions
@@ -554,6 +554,7 @@ def load_batch():
         )
 
     df = pd.read_csv(batch_path, parse_dates=["created_at", "settled_at"])
+    df = ensure_independent_cash_lanes(df)
     _state["transactions"] = _normalize_batch_dataframe(df)
     _reset_run_state()
 
@@ -745,20 +746,32 @@ def chat(req: ChatRequest):
             "ai_available": True,
             "executed": result,
         }
-    result = ask(
-        req.question,
-        reconciled if reconciled is not None else pd.DataFrame(),
-        extra_context=extra_json,
-        resolutions=_state["resolutions"],
-        scope={
-            "date": (req.date or "")[:10] or None,
-            "preset": req.preset,
-            "start": req.start,
-            "end": req.end,
-            "batch_id": req.batch_id or (_state.get("batch_meta") or {}).get("batch_id"),
-        },
-        language=req.language,
-    )
+    try:
+        result = ask(
+            req.question,
+            reconciled if reconciled is not None else pd.DataFrame(),
+            extra_context=extra_json,
+            resolutions=_state["resolutions"],
+            scope={
+                "date": (req.date or "")[:10] or None,
+                "preset": req.preset,
+                "start": req.start,
+                "end": req.end,
+                "batch_id": req.batch_id or (_state.get("batch_meta") or {}).get("batch_id"),
+            },
+            language=req.language,
+        )
+    except Exception:
+        return {
+            "answer": chat_copy(
+                req.language,
+                "Chat reached the API but Gemini did not finish. Use Dashboard, Exceptions, Cash, and GST for the same books. Retry in a few seconds.",
+                "एपीआई पहुँच गया, लेकिन जेमिनी पूरा नहीं हुआ। वही बही के लिए डैशबोर्ड, अपवाद, नकद, जीएसटी खोलें। कुछ सेकंड बाद फिर पूछें।",
+            ),
+            "grounded_in": [],
+            "tools_used": [],
+            "ai_available": False,
+        }
     if result.get("pending_confirmation"):
         _state["pending_chat_action"] = result["pending_confirmation"]
         _state["last_focus_payment_id"] = result["pending_confirmation"].get("payment_id")
@@ -766,7 +779,10 @@ def chat(req: ChatRequest):
     pid = found.group(1) if found else None
     if pid:
         _state["last_focus_payment_id"] = pid
-    log_audit("chat_query", pid or "-", f"Q: {req.question[:240]} | A: {str(result.get('answer') or '')[:400]}", "gemini_api")
+    try:
+        log_audit("chat_query", pid or "-", f"Q: {req.question[:240]} | A: {str(result.get('answer') or '')[:400]}", "gemini_api")
+    except Exception:
+        pass
     return result
 
 
@@ -1366,18 +1382,7 @@ def create_razorpay_order(req: RazorpayCreateOrderRequest):
     except HTTPException:
         raise
     except Exception as exc:
-        hint = str(exc).lower()
-        if "auth" in hint or "401" in hint or "invalid key" in hint or "unauthorized" in hint:
-            detail = (
-                "Razorpay rejected the test keys. On Render set RAZORPAY_KEY_ID and "
-                "RAZORPAY_KEY_SECRET from Test Mode, with no quotes, then restart the service."
-            )
-        else:
-            detail = (
-                "Could not create Razorpay order. Use a matching Test Mode key pair on the "
-                "API host (Render), not only on Vercel."
-            )
-        raise HTTPException(status_code=502, detail=detail) from exc
+        raise HTTPException(status_code=502, detail=razorpay_gateway.describe_gateway_error(exc)) from exc
 
     order_id = str(order.get("id") or "")
     if not order_id:

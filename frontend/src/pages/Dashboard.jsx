@@ -932,7 +932,7 @@ function CashPage() {
         <div className="db-report-highlight-card db-report-highlight-blue">
           <span className="db-report-kicker">In transit</span>
           <strong>{formatRupees(cash?.in_transit_rupees)}</strong>
-          <small>Matched, not yet dated as settled</small>
+          <small>All matched settlements not yet received</small>
         </div>
         <div className="db-report-highlight-card db-report-highlight-amber">
           <span className="db-report-kicker">Blocked</span>
@@ -942,7 +942,7 @@ function CashPage() {
         <div className="db-report-highlight-card db-report-highlight-violet">
           <span className="db-report-kicker">Next 7 days</span>
           <strong>{formatRupees(cash?.expected_7d_rupees)}</strong>
-          <small>Expected matched inflows</small>
+          <small>Only the slice dated inside the coming week</small>
         </div>
       </div>
 

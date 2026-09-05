@@ -13,8 +13,14 @@ import pandas as pd
 import random
 import uuid
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def _now() -> datetime:
+    return datetime.now(IST).replace(tzinfo=None)
 
 NUM_RECORDS = 100
 MISMATCH_RATE = 0.18   # ~18% of records get a seeded mismatch
@@ -31,11 +37,52 @@ def random_datetime(start: datetime, end: datetime, rng: random.Random) -> datet
     return start + timedelta(seconds=rng.randint(0, int(delta.total_seconds())))
 
 
+def ensure_independent_cash_lanes(df: pd.DataFrame, now: Optional[datetime] = None) -> pd.DataFrame:
+    """
+    Keep in-transit stock and the 7-day forecast from collapsing into one number.
+
+    In-transit is every matched settlement not yet received. Next 7 days is only
+    the slice dated inside that week. A pure T+2 tail makes those equal, which
+    looks like a copy-paste bug on the Cash page.
+    """
+    if df is None or getattr(df, "empty", True):
+        return df
+    now = now or _now()
+    out = df.copy()
+    out["created_at"] = pd.to_datetime(out["created_at"], errors="coerce")
+    out["settled_at"] = pd.to_datetime(out["settled_at"], errors="coerce")
+    created = out["created_at"]
+    settled = out["settled_at"]
+    delta_days = (settled - created).dt.total_seconds() / 86400.0
+    has_settlement = out["settlement_id"].notna() if "settlement_id" in out.columns else True
+    clean = has_settlement & created.notna() & settled.notna() & delta_days.between(1.4, 2.6)
+    idxs = list(out.index[clean])
+    if len(idxs) < 4:
+        idxs = list(out.index[has_settlement & created.notna()])
+    if len(idxs) < 4:
+        return out
+
+    day0 = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    # Two land inside the 7 calendar-day forecast. Two settle on day +7, which is
+    # still matched (created→settled ≤ 7 days) but outside that window.
+    beyond = day0 + timedelta(days=7, hours=15)
+    stamps = (
+        (now - timedelta(hours=8), now + timedelta(days=2)),
+        (now - timedelta(hours=20), now + timedelta(days=1)),
+        (beyond - timedelta(days=7), beyond),
+        (beyond - timedelta(days=6, hours=18), beyond + timedelta(hours=4)),
+    )
+    for idx, (created_at, settled_at) in zip(idxs[:4], stamps):
+        out.at[idx, "created_at"] = created_at
+        out.at[idx, "settled_at"] = settled_at
+    return out
+
+
 def generate_batch(num_records: int = NUM_RECORDS, seed: Optional[int] = None):
     rng = random.Random(seed)
     # Spread captures across ~8 months so reports have monthly/yearly series,
     # while keeping a recent T+2 tail for in-transit cash.
-    now = datetime.now()
+    now = _now()
     horizon_start = now - timedelta(days=260)
     records, answer_key = [], []
 
@@ -110,7 +157,8 @@ def generate_batch(num_records: int = NUM_RECORDS, seed: Optional[int] = None):
         if mismatch_type:
             answer_key.append({"payment_id": payment_id, "mismatch_type": mismatch_type})
 
-    return pd.DataFrame(records), pd.DataFrame(answer_key)
+    df = ensure_independent_cash_lanes(pd.DataFrame(records), now)
+    return df, pd.DataFrame(answer_key)
 
 
 if __name__ == "__main__":

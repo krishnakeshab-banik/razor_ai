@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
+from config import now_ist
 from serialize import json_safe, paise_to_rupees
 
 
@@ -29,7 +30,7 @@ def compute_cash_position(reconciled: pd.DataFrame, as_of: datetime | None = Non
     Returns available cash, in-transit settlements, exception-blocked amounts,
     and a 7-day daily forecast. All money fields are rupees.
     """
-    as_of = as_of or datetime.now()
+    as_of = as_of or now_ist()
     as_of_ts = pd.Timestamp(as_of)
 
     if reconciled is None or reconciled.empty:
@@ -103,13 +104,15 @@ def compute_cash_position(reconciled: pd.DataFrame, as_of: datetime | None = Non
         "unresolved_settlement_rupees": paise_to_rupees(blocked),
         "assumptions": [
             "Matched rows with settled_at in the past are treated as available cash.",
-            "Matched rows not yet dated as settled are in transit (typical T+2).",
+            "Matched rows not yet dated as settled are in transit (T+2 and later).",
+            "Next 7 days is only the in-transit slice with settled_at inside the coming week.",
             "Exception amounts are excluded from projected inflows until resolved.",
             "No upcoming payouts or known expenses were supplied, so they are assumed ₹0.",
         ],
         "notes": (
             "Available cash is matched settlements already past settled_at. "
-            "In-transit is matched but not yet dated as settled. "
+            "In-transit is all matched money not yet received. "
+            "Next 7 days is only in-transit dated inside the coming week, so it can be smaller. "
             "Blocked cash sits in unresolved exceptions and is excluded from the 7-day net."
         ),
     }

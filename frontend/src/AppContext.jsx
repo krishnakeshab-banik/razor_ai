@@ -630,11 +630,14 @@ export function AppProvider({ children }) {
         await refreshAfterRun(data.executed.batch_metrics);
       }
       fetchAuditTrail();
-    } catch {
+    } catch (error) {
+      const detail = String(error?.message || '').trim();
       appendChatMessage({
         id: Date.now() + 1,
         sender: 'bot',
-        text: 'Chat is unavailable. The rule engine still holds the exception list, cash position, and GST lines.',
+        text: detail
+          ? `Chat is unavailable. ${detail}`
+          : 'Chat is unavailable. The rule engine still holds the exception list, cash position, and GST lines.',
       });
     } finally {
       setChatLoading(false);
